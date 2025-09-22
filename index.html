@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍌 NanoBana JSON Prompt Constructor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🍌 NanoBana JSON Prompt Constructor</h1>
+        </header>
+        
+        <main class="main-content">
+            <!-- Left Panel - Settings Form -->
+            <div class="settings-panel">
+                <!-- Main Task Section -->
+                <section class="form-section">
+                    <h2>Main Task</h2>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="task" value="Image Generation" checked>
+                            <span>Image Generation</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="task" value="Photo Editing">
+                            <span>Photo Editing</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="task" value="Image Upscaling">
+                            <span>Image Upscaling</span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Task Description</label>
+                        <textarea class="form-control" id="taskDescription" placeholder="Describe task details..."></textarea>
+                    </div>
+                </section>
+
+                <!-- Camera Settings Section -->
+                <section class="form-section">
+                    <h2>Camera Settings</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">ISO</label>
+                            <select class="form-control" id="iso">
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                                <option value="400" selected>400</option>
+                                <option value="800">800</option>
+                                <option value="1600">1600</option>
+                                <option value="3200">3200</option>
+                                <option value="6400">6400</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Aperture</label>
+                            <select class="form-control" id="aperture">
+                                <option value="f/1.4">f/1.4</option>
+                                <option value="f/1.8">f/1.8</option>
+                                <option value="f/2.8" selected>f/2.8</option>
+                                <option value="f/4">f/4</option>
+                                <option value="f/5.6">f/5.6</option>
+                                <option value="f/8">f/8</option>
+                                <option value="f/11">f/11</option>
+                                <option value="f/16">f/16</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Shutter Speed</label>
+                            <select class="form-control" id="shutterSpeed">
+                                <option value="1/1000">1/1000</option>
+                                <option value="1/500">1/500</option>
+                                <option value="1/250" selected>1/250</option>
+                                <option value="1/125">1/125</option>
+                                <option value="1/60">1/60</option>
+                                <option value="1/30">1/30</option>
+                                <option value="1/15">1/15</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Focal Length</label>
+                            <select class="form-control" id="focalLength">
+                                <option value="14mm">14mm</option>
+                                <option value="24mm">24mm</option>
+                                <option value="35mm">35mm</option>
+                                <option value="50mm" selected>50mm</option>
+                                <option value="85mm">85mm</option>
+                                <option value="135mm">135mm</option>
+                                <option value="200mm">200mm</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Lighting Section -->
+                <section class="form-section">
+                    <h2>Lighting</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Light Type</label>
+                            <select class="form-control" id="lightType">
+                                <option value="Soft" selected>Soft</option>
+                                <option value="Hard">Hard</option>
+                                <option value="Diffused">Diffused</option>
+                                <option value="Directional">Directional</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Direction</label>
+                            <select class="form-control" id="lightDirection">
+                                <option value="Front" selected>Front</option>
+                                <option value="Side">Side</option>
+                                <option value="Backlight">Backlight</option>
+                                <option value="Top">Top</option>
+                                <option value="Bottom">Bottom</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Lighting Scheme</label>
+                            <select class="form-control" id="lightingScheme">
+                                <option value="Rembrandt">Rembrandt</option>
+                                <option value="Butterfly" selected>Butterfly</option>
+                                <option value="Loop">Loop</option>
+                                <option value="Split">Split</option>
+                                <option value="Broad">Broad</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Temperature</label>
+                            <select class="form-control" id="temperature">
+                                <option value="Warm">Warm</option>
+                                <option value="Cold">Cold</option>
+                                <option value="Neutral" selected>Neutral</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Composition Section -->
+                <section class="form-section">
+                    <h2>Composition</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Framing</label>
+                            <select class="form-control" id="framing">
+                                <option value="Close-up">Close-up</option>
+                                <option value="Medium shot" selected>Medium shot</option>
+                                <option value="Wide shot">Wide shot</option>
+                                <option value="Portrait">Portrait</option>
+                                <option value="Landscape">Landscape</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Angle</label>
+                            <select class="form-control" id="angle">
+                                <option value="Straight" selected>Straight</option>
+                                <option value="From below">From below</option>
+                                <option value="From above">From above</option>
+                                <option value="Side">Side</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="ruleOfThirds">
+                            <span>Rule of Thirds</span>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- Style Section -->
+                <section class="form-section">
+                    <h2>Style and Processing</h2>
+                    <div class="form-group">
+                        <label class="form-label">Color Scheme</label>
+                        <select class="form-control" id="colorScheme">
+                            <option value="Natural" selected>Natural</option>
+                            <option value="Saturated">Saturated</option>
+                            <option value="Muted">Muted</option>
+                            <option value="Monochrome">Monochrome</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Contrast: <span id="contrastValue">50</span></label>
+                            <input type="range" class="slider" id="contrast" min="0" max="100" value="50">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Sharpness: <span id="sharpnessValue">50</span></label>
+                            <input type="range" class="slider" id="sharpness" min="0" max="100" value="50">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="backgroundBlur">
+                            <span>Background Blur</span>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- Quality Section -->
+                <section class="form-section">
+                    <h2>Quality and Detail</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Resolution</label>
+                            <select class="form-control" id="resolution">
+                                <option value="1024x1024" selected>1024x1024</option>
+                                <option value="1536x1024">1536x1024</option>
+                                <option value="1024x1536">1024x1536</option>
+                                <option value="2048x2048">2048x2048</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Detail Level</label>
+                            <select class="form-control" id="detailLevel">
+                                <option value="Low">Low</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="High">High</option>
+                                <option value="Maximum">Maximum</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="noiseReduction">
+                                <span>Noise Reduction</span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="sharpening">
+                                <span>Sharpening</span>
+                            </label>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Restrictions Section -->
+                <section class="form-section">
+                    <h2>Restrictions</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="preserveFaces">
+                                <span>Do not change faces</span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="preserveComposition">
+                                <span>Preserve composition</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="noObjectAddition">
+                                <span>Do not add objects</span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="noBackgroundChange">
+                                <span>Do not change background</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="precisePositioning">
+                            <span>Precise positioning</span>
+                        </label>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Panel - JSON Preview -->
+            <div class="preview-panel">
+                <div class="preview-header">
+                    <h2>JSON Preview</h2>
+                    <div class="preview-actions">
+                        <button class="btn btn--secondary" id="copyBtn">Copy JSON</button>
+                        <button class="btn btn--primary" id="downloadBtn">Download JSON file</button>
+                    </div>
+                </div>
+                <div class="json-preview">
+                    <textarea class="json-textarea" id="jsonOutput" readonly></textarea>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
