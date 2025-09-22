@@ -737,5 +737,4 @@ const promptConfig = {
   },
 };
 
-export default promptConfig;
-export { promptConfig };
+window.promptConfig = promptConfig;

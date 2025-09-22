@@ -1,8 +1,9 @@
 // NanoBana JSON Prompt Constructor JavaScript
 class NanoBanaConstructor {
     constructor() {
+        this.config = window.promptConfig || { styles: {}, presets: [] };
         this.initializeElements();
-        this.initializePresets();
+        this.initializeFromConfig();
         this.bindEvents();
         this.setupObjectControls();
         this.handleStyleChange(this.getActiveStyle());
@@ -34,7 +35,6 @@ class NanoBanaConstructor {
         
         // Style
         this.mainStyle = document.getElementById('mainStyle');
-        this.styleGroups = document.querySelectorAll('[data-style-group]');
         this.colorScheme = document.getElementById('colorScheme');
         this.contrast = document.getElementById('contrast');
         this.sharpness = document.getElementById('sharpness');
@@ -80,16 +80,83 @@ class NanoBanaConstructor {
 
         // Check if all elements are found
         this.validateElements();
+
+        this.sectionMap = Array.from(document.querySelectorAll('[data-section]')).reduce((acc, section) => {
+            const key = section.dataset.section;
+            if (key) {
+                acc[key] = section;
+            }
+            return acc;
+        }, {});
+
+        this.baseSectionDisplay = {};
+        Object.entries(this.sectionMap).forEach(([key, element]) => {
+            this.baseSectionDisplay[key] = element.style.display || '';
+        });
+
+        this.stylePanels = new Map(
+            Array.from(document.querySelectorAll('[data-style-panel]')).map(panel => [panel.dataset.stylePanel, panel])
+        );
+
+        this.allControls = Array.from(document.querySelectorAll('input[id], select[id], textarea[id]'));
+        this.baseDisabledState = new Map();
+        this.baseDisplayState = new Map();
+
+        this.allControls.forEach(control => {
+            this.baseDisabledState.set(control.id, control.disabled);
+            const wrapper = this.getFieldWrapper(control);
+            if (wrapper) {
+                this.baseDisplayState.set(control.id, wrapper.style.display || '');
+            }
+        });
     }
 
-    initializePresets() {
-        this.photographyStyles = new Set([
-            'professional_photo',
-            'cinematic_photo',
-            'documentary_photo'
-        ]);
+    initializeFromConfig() {
+        const styles = this.config.styles || {};
+        const presets = Array.isArray(this.config.presets) ? this.config.presets : [];
 
-        this.defaultValues = {
+        this.photographyStyles = new Set(
+            Object.values(styles)
+                .filter(style => style && style.category === 'photography')
+                .map(style => style.key)
+        );
+
+        this.defaultValues = this.buildBaseDefaults();
+
+        Object.values(styles).forEach(style => {
+            if (!style || !style.defaults) return;
+            Object.entries(style.defaults).forEach(([field, value]) => {
+                if (!(field in this.defaultValues)) {
+                    this.defaultValues[field] = value;
+                }
+            });
+        });
+
+        this.presets = presets.map(preset => ({
+            ...preset,
+            mainStyle: preset.style || preset.mainStyle
+        }));
+
+        this.presetsByStyle = this.presets.reduce((acc, preset) => {
+            const styleKey = preset.style || preset.mainStyle;
+            if (!styleKey) return acc;
+            if (!acc[styleKey]) {
+                acc[styleKey] = [];
+            }
+            acc[styleKey].push(preset);
+            return acc;
+        }, {});
+
+        this.presetMap = this.presets.reduce((acc, preset) => {
+            acc[preset.key] = preset;
+            return acc;
+        }, {});
+
+        this.populateStyleOptions(styles);
+    }
+
+    buildBaseDefaults() {
+        return {
             iso: '400',
             aperture: 'f/2.8',
             shutterSpeed: '1/250',
@@ -115,218 +182,145 @@ class NanoBanaConstructor {
             naturalPhenomenon: '',
             atmosphereNotes: ''
         };
+    }
 
-        this.presets = [
-            {
-                key: 'studio_portrait',
-                label: 'Studio Portrait',
-                mainStyle: 'professional_photo',
-                values: {
-                    iso: '200',
-                    aperture: 'f/2.8',
-                    shutterSpeed: '1/125',
-                    focalLength: '85mm',
-                    lightType: 'Soft',
-                    lightDirection: 'Side',
-                    lightingScheme: 'Rembrandt',
-                    temperature: 'Warm',
-                    framing: 'Portrait',
-                    angle: 'Straight',
-                    ruleOfThirds: true,
-                    colorScheme: 'Natural',
-                    contrast: '65',
-                    sharpness: '55',
-                    backgroundBlur: true,
-                    resolution: '2048x2048',
-                    detailLevel: 'High',
-                    noiseReduction: true,
-                    sharpening: false,
-                    weatherCondition: 'clear'
-                }
-            },
-            {
-                key: 'dramatic_landscape',
-                label: 'Dramatic Landscape',
-                mainStyle: 'professional_photo',
-                values: {
-                    iso: '100',
-                    aperture: 'f/8',
-                    shutterSpeed: '1/60',
-                    focalLength: '24mm',
-                    lightType: 'Hard',
-                    lightDirection: 'Backlight',
-                    lightingScheme: 'Split',
-                    temperature: 'Cold',
-                    framing: 'Landscape',
-                    angle: 'From above',
-                    ruleOfThirds: true,
-                    colorScheme: 'Muted',
-                    contrast: '70',
-                    sharpness: '60',
-                    backgroundBlur: false,
-                    resolution: '2048x2048',
-                    detailLevel: 'Maximum',
-                    noiseReduction: false,
-                    sharpening: true,
-                    weatherCondition: 'storm',
-                    naturalPhenomenon: 'lightning'
-                }
-            },
-            {
-                key: 'street_documentary',
-                label: 'Street Documentary',
-                mainStyle: 'documentary_photo',
-                values: {
-                    iso: '800',
-                    aperture: 'f/4',
-                    shutterSpeed: '1/500',
-                    focalLength: '35mm',
-                    lightType: 'Directional',
-                    lightDirection: 'Side',
-                    lightingScheme: 'Loop',
-                    temperature: 'Neutral',
-                    framing: 'Medium shot',
-                    angle: 'Straight',
-                    ruleOfThirds: true,
-                    colorScheme: 'Muted',
-                    contrast: '55',
-                    sharpness: '50',
-                    backgroundBlur: false,
-                    resolution: '1536x1024',
-                    detailLevel: 'High',
-                    noiseReduction: false,
-                    sharpening: true,
-                    weatherCondition: 'overcast'
-                }
-            },
-            {
-                key: 'neon_cinematic',
-                label: 'Neon Cinematic',
-                mainStyle: 'cinematic_photo',
-                values: {
-                    iso: '1600',
-                    aperture: 'f/1.8',
-                    shutterSpeed: '1/60',
-                    focalLength: '35mm',
-                    lightType: 'Directional',
-                    lightDirection: 'Side',
-                    lightingScheme: 'Split',
-                    temperature: 'Cold',
-                    framing: 'Medium shot',
-                    angle: 'From below',
-                    ruleOfThirds: true,
-                    colorScheme: 'Saturated',
-                    contrast: '75',
-                    sharpness: '60',
-                    backgroundBlur: true,
-                    resolution: '2048x2048',
-                    detailLevel: 'High',
-                    noiseReduction: true,
-                    sharpening: true,
-                    weatherCondition: 'rain',
-                    naturalPhenomenon: 'neon_glow'
-                }
-            },
-            {
-                key: 'ethereal_fantasy',
-                label: 'Ethereal Fantasy',
-                mainStyle: 'fantasy_art',
-                values: {
-                    weatherCondition: 'mist',
-                    naturalPhenomenon: 'aurora',
-                    atmosphereNotes: 'Soft magical glow, floating particles'
-                }
-            },
-            {
-                key: 'cyberpunk_city',
-                label: 'Cyberpunk Megacity',
-                mainStyle: 'science_fiction',
-                values: {
-                    weatherCondition: 'rain',
-                    naturalPhenomenon: 'neon_glow',
-                    atmosphereNotes: 'Dense smog, holographic ads everywhere'
-                }
-            },
-            {
-                key: 'noir_mystery',
-                label: 'Noir Mystery',
-                mainStyle: 'dark_noir',
-                values: {
-                    weatherCondition: 'fog',
-                    naturalPhenomenon: 'lightning',
-                    atmosphereNotes: 'High-contrast shadows, cigarette smoke drifts'
-                }
-            },
-            {
-                key: 'storybook_watercolor',
-                label: 'Storybook Watercolor',
-                mainStyle: 'watercolor',
-                values: {
-                    naturalPhenomenon: 'rainbow',
-                    atmosphereNotes: 'Soft bleeding colors, gentle sunbeams'
-                }
-            },
-            {
-                key: 'renaissance_oil',
-                label: 'Renaissance Oil Painting',
-                mainStyle: 'oil_painting',
-                values: {
-                    weatherCondition: 'clear',
-                    atmosphereNotes: 'Warm golden hour lighting, rich textures'
-                }
-            },
-            {
-                key: 'retro_pixel',
-                label: 'Retro Pixel Scene',
-                mainStyle: 'pixel_art',
-                values: {
-                    weatherCondition: 'clear',
-                    naturalPhenomenon: 'shooting_stars',
-                    atmosphereNotes: '8-bit aesthetic with limited palette'
-                }
-            },
-            {
-                key: 'anime_adventure',
-                label: 'Anime Adventure',
-                mainStyle: 'anime_style',
-                values: {
-                    weatherCondition: 'partly_cloudy',
-                    naturalPhenomenon: 'shooting_stars',
-                    atmosphereNotes: 'Dynamic motion lines, expressive lighting'
-                }
-            },
-            {
-                key: 'low_poly_valley',
-                label: 'Low-Poly Valley',
-                mainStyle: 'low_poly',
-                values: {
-                    weatherCondition: 'clear',
-                    atmosphereNotes: 'Geometric shapes, flat shading'
-                }
-            },
-            {
-                key: 'graphite_sketch',
-                label: 'Graphite Study',
-                mainStyle: 'sketch_graphite',
-                values: {
-                    weatherCondition: 'overcast',
-                    atmosphereNotes: 'Soft pencil strokes, paper texture visible'
-                }
+    populateStyleOptions(styles) {
+        if (!this.mainStyle) return;
+
+        const existingValue = this.mainStyle.value;
+        this.mainStyle.innerHTML = '';
+
+        const styleEntries = Object.keys(styles).map(key => styles[key]);
+
+        styleEntries.forEach((style, index) => {
+            if (!style || !style.key) return;
+            const option = document.createElement('option');
+            option.value = style.key;
+            option.textContent = style.label || style.key;
+            if (style.key === existingValue || (!existingValue && index === 0)) {
+                option.selected = true;
             }
-        ];
+            this.mainStyle.appendChild(option);
+        });
 
-        this.presetsByStyle = this.presets.reduce((acc, preset) => {
-            if (!acc[preset.mainStyle]) {
-                acc[preset.mainStyle] = [];
+        if (!this.mainStyle.value && styleEntries.length > 0) {
+            this.mainStyle.value = styleEntries[0].key;
+        }
+    }
+
+    getStyleDefinition(styleKey) {
+        if (!styleKey) return null;
+        return this.config.styles ? this.config.styles[styleKey] : null;
+    }
+
+    updateStylePanels(styleKey) {
+        if (!this.stylePanels) return;
+        this.stylePanels.forEach((panel, key) => {
+            if (!panel) return;
+            const shouldShow = key === styleKey;
+            panel.style.display = shouldShow ? '' : 'none';
+            panel.dataset.active = shouldShow ? 'true' : 'false';
+            panel.querySelectorAll('input, select, textarea, button').forEach(control => {
+                control.disabled = !shouldShow;
+            });
+        });
+    }
+
+    resetFieldStates() {
+        if (!this.allControls) return;
+        this.allControls.forEach(control => {
+            if (!control || !control.id) return;
+            const baseDisabled = this.baseDisabledState.get(control.id);
+            control.disabled = Boolean(baseDisabled);
+            const wrapper = this.getFieldWrapper(control);
+            if (wrapper) {
+                wrapper.style.display = this.baseDisplayState.get(control.id) || '';
             }
-            acc[preset.mainStyle].push(preset);
-            return acc;
-        }, {});
+        });
 
-        this.presetMap = this.presets.reduce((acc, preset) => {
-            acc[preset.key] = preset;
-            return acc;
-        }, {});
+        Object.entries(this.sectionMap || {}).forEach(([key, element]) => {
+            if (!element) return;
+            element.style.display = this.baseSectionDisplay[key] || '';
+            delete element.dataset.collapsed;
+        });
+    }
+
+    applyStyleDependencies(styleDefinition) {
+        const dependencies = styleDefinition && styleDefinition.dependencies ? styleDefinition.dependencies : {};
+        this.applySectionVisibility(dependencies);
+
+        const disableFields = dependencies.disableFields || [];
+        const enableFields = dependencies.enableFields || [];
+        const hideFields = dependencies.hideFields || [];
+        const autoset = dependencies.autoset || {};
+
+        disableFields.forEach(fieldId => this.setFieldDisabled(fieldId, true));
+        enableFields.forEach(fieldId => this.setFieldDisabled(fieldId, false));
+        hideFields.forEach(fieldId => this.setFieldVisibility(fieldId, false));
+
+        Object.entries(autoset).forEach(([fieldId, value]) => {
+            if (fieldId === 'mainStyle') return;
+            this.setControlValue(fieldId, value);
+        });
+    }
+
+    applySectionVisibility(dependencies) {
+        if (!dependencies || !this.sectionMap) return;
+
+        const enabledSections = new Set(dependencies.enableSections || []);
+        const collapsedSections = new Set(dependencies.collapseSections || []);
+
+        Object.entries(this.sectionMap).forEach(([sectionKey, element]) => {
+            if (!element) return;
+            const shouldShow = enabledSections.size === 0 || enabledSections.has(sectionKey);
+            element.style.display = shouldShow ? '' : 'none';
+            if (shouldShow && collapsedSections.has(sectionKey)) {
+                element.dataset.collapsed = 'true';
+            } else {
+                delete element.dataset.collapsed;
+            }
+        });
+    }
+
+    applyStyleDefaults(styleDefinition) {
+        if (!styleDefinition || !styleDefinition.defaults) return;
+        Object.entries(styleDefinition.defaults).forEach(([field, value]) => {
+            if (field === 'mainStyle') return;
+            this.setControlValue(field, value);
+        });
+    }
+
+    setFieldDisabled(fieldId, disabled) {
+        const control = document.getElementById(fieldId);
+        if (!control) return;
+        control.disabled = Boolean(disabled);
+    }
+
+    setFieldVisibility(fieldId, visible) {
+        const control = document.getElementById(fieldId);
+        if (!control) return;
+        const wrapper = this.getFieldWrapper(control);
+        if (!wrapper) return;
+        wrapper.style.display = visible ? (this.baseDisplayState.get(fieldId) || '') : 'none';
+    }
+
+    getFieldWrapper(control) {
+        if (!control) return null;
+        return control.closest('.form-group') || control.closest('.form-row') || control.parentElement;
+    }
+
+    isSectionActive(sectionKey) {
+        const section = this.sectionMap ? this.sectionMap[sectionKey] : null;
+        if (!section) return true;
+        return section.style.display !== 'none';
+    }
+
+    toSnakeCase(value) {
+        if (!value) return value;
+        return String(value)
+            .replace(/([A-Z])/g, '_$1')
+            .replace(/[-\s]+/g, '_')
+            .toLowerCase();
     }
 
     validateElements() {
@@ -598,21 +592,15 @@ class NanoBanaConstructor {
 
     handleStyleChange(styleKey) {
         const activeStyle = styleKey || this.getActiveStyle();
+        const styleDefinition = this.getStyleDefinition(activeStyle);
 
-        if (this.styleGroups) {
-            this.styleGroups.forEach(group => {
-                const isActive = group.dataset.styleGroup === activeStyle;
-                group.style.display = isActive ? '' : 'none';
-                group.dataset.active = isActive ? 'true' : 'false';
+        this.resetFieldStates();
+        this.updateStylePanels(activeStyle);
+        this.applyStyleDefaults(styleDefinition);
+        this.applyStyleDependencies(styleDefinition);
 
-                const controls = group.querySelectorAll('input, select, textarea, button');
-                controls.forEach(control => {
-                    control.disabled = !isActive;
-                });
-            });
-        }
-
-        this.toggleCameraSection(this.isPhotographyStyle(activeStyle));
+        const shouldEnableCamera = this.isPhotographyStyle(activeStyle);
+        this.toggleCameraSection(shouldEnableCamera);
         this.populatePresetOptions(activeStyle);
     }
 
@@ -694,7 +682,6 @@ class NanoBanaConstructor {
         const currentStyle = this.getActiveStyle();
 
         Object.entries(this.defaultValues).forEach(([id, value]) => {
-            if (!this.shouldResetFieldForStyle(id, currentStyle)) return;
             this.setControlValue(id, value);
         });
 
@@ -736,33 +723,6 @@ class NanoBanaConstructor {
         control.dispatchEvent(new Event(eventName, { bubbles: true }));
     }
 
-    shouldResetFieldForStyle(id, currentStyle) {
-        // Only reset fields relevant to the current style context
-        if (this.isPhotographyStyle(currentStyle)) {
-            return true;
-        }
-
-        const photoSpecificFields = new Set([
-            'iso',
-            'aperture',
-            'shutterSpeed',
-            'focalLength',
-            'lightType',
-            'lightDirection',
-            'lightingScheme',
-            'temperature',
-            'colorScheme',
-            'contrast',
-            'sharpness',
-            'backgroundBlur'
-        ]);
-
-        if (photoSpecificFields.has(id)) {
-            return false;
-        }
-
-        return true;
-    }
 
     humanizeValue(value) {
         if (typeof value !== 'string') return value;
@@ -772,35 +732,40 @@ class NanoBanaConstructor {
 
     getStyleData() {
         const activeStyle = this.getActiveStyle();
-        const styleData = {
-            main_style: activeStyle,
-            settings: {}
-        };
+        const styleDefinition = this.getStyleDefinition(activeStyle);
+        const settings = {};
+        const panel = this.stylePanels ? this.stylePanels.get(activeStyle) : null;
 
-        switch (activeStyle) {
-            case 'professional_photo':
-                styleData.settings = {
-                    color_scheme: this.colorScheme ? this.colorScheme.value : 'Natural',
-                    contrast: this.contrast ? parseInt(this.contrast.value, 10) : 50,
-                    sharpness: this.sharpness ? parseInt(this.sharpness.value, 10) : 50,
-                    background_blur: this.backgroundBlur ? this.backgroundBlur.checked : false
-                };
-                break;
-            case 'abstract':
-                styleData.settings = {
-                    abstract_type: this.abstractType ? this.abstractType.value : 'geometric'
-                };
-                break;
-            case 'cartoon':
-                styleData.settings = {
-                    cartoon_type: this.cartoonType ? this.cartoonType.value : 'classic'
-                };
-                break;
-            default:
-                styleData.settings = {};
+        if (panel) {
+            const controls = panel.querySelectorAll('input[id], select[id], textarea[id]');
+            controls.forEach(control => {
+                const id = control.id;
+                const key = this.toSnakeCase(id);
+                if (!key) return;
+
+                let value;
+                if (control.type === 'checkbox') {
+                    value = control.checked;
+                } else if (control.type === 'range') {
+                    value = parseInt(control.value, 10);
+                } else {
+                    value = control.value;
+                }
+
+                if (value === '' || value === undefined) {
+                    return;
+                }
+
+                settings[key] = value;
+            });
         }
 
-        return styleData;
+        return {
+            main_style: activeStyle,
+            category: styleDefinition ? styleDefinition.category : undefined,
+            preset: this.stylePreset && this.stylePreset.value ? this.stylePreset.value : undefined,
+            settings
+        };
     }
 
     getSelectedTask() {
@@ -817,33 +782,51 @@ class NanoBanaConstructor {
 
         const jsonData = {
             task: finalTask,
-            lighting: {
+            style: this.getStyleData()
+        };
+
+        if (this.isSectionActive('lighting')) {
+            jsonData.lighting = {
                 type: this.lightType ? this.lightType.value : 'Soft',
                 direction: this.lightDirection ? this.lightDirection.value : 'Front',
                 scheme: this.lightingScheme ? this.lightingScheme.value : 'Butterfly',
                 temperature: this.temperature ? this.temperature.value : 'Neutral'
-            },
-            composition: {
+            };
+        }
+
+        if (this.isSectionActive('composition')) {
+            jsonData.composition = {
                 framing: this.framing ? this.framing.value : 'Medium shot',
                 angle: this.angle ? this.angle.value : 'Straight',
                 rule_of_thirds: this.ruleOfThirds ? this.ruleOfThirds.checked : false
-            },
-            style: this.getStyleData(),
-            quality: {
+            };
+        }
+
+        if (this.isSectionActive('quality')) {
+            jsonData.quality = {
                 resolution: this.resolution ? this.resolution.value : '1024x1024',
                 detail_level: this.detailLevel ? this.detailLevel.value : 'Medium',
                 noise_reduction: this.noiseReduction ? this.noiseReduction.checked : false,
                 sharpening: this.sharpening ? this.sharpening.checked : false
-            },
-            restrictions: {
+            };
+        }
+
+        if (this.isSectionActive('restrictions')) {
+            jsonData.restrictions = {
                 preserve_faces: this.preserveFaces ? this.preserveFaces.checked : false,
                 preserve_composition: this.preserveComposition ? this.preserveComposition.checked : false,
                 no_object_addition: this.noObjectAddition ? this.noObjectAddition.checked : false,
                 no_background_change: this.noBackgroundChange ? this.noBackgroundChange.checked : false,
                 precise_positioning: this.precisePositioning ? this.precisePositioning.checked : false
-            },
-            additional_objects: this.collectObjects()
-        };
+            };
+        }
+
+        if (this.isSectionActive('objects')) {
+            const objects = this.collectObjects();
+            if (objects.length > 0) {
+                jsonData.additional_objects = objects;
+            }
+        }
 
         if (includeCamera) {
             jsonData.camera_settings = {
@@ -854,9 +837,11 @@ class NanoBanaConstructor {
             };
         }
 
-        const atmosphere = this.getAtmosphereData();
-        if (atmosphere) {
-            jsonData.atmosphere = atmosphere;
+        if (this.isSectionActive('atmosphere')) {
+            const atmosphere = this.getAtmosphereData();
+            if (atmosphere) {
+                jsonData.atmosphere = atmosphere;
+            }
         }
 
         return jsonData;

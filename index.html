@@ -16,7 +16,7 @@
             <!-- Left Panel - Settings Form -->
             <div class="settings-panel">
                 <!-- Main Task Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="task">
                     <h2>Main Task</h2>
                     <div class="radio-group">
                         <label class="radio-label">
@@ -39,7 +39,7 @@
                 </section>
 
                 <!-- Style Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="style">
                     <h2>Style and Processing</h2>
                     <div class="form-group">
                         <label class="form-label">Main Style</label>
@@ -72,7 +72,7 @@
                     </div>
 
                     <!-- Professional Photo Sub-Settings -->
-                    <div id="professionalPhotoSettings" class="style-settings" data-style-group="professional_photo">
+                    <div id="professionalPhotoSettings" class="style-settings" data-style-panel="professional_photo">
                         <div class="form-group">
                             <label class="form-label">Color Scheme</label>
                             <select class="form-control" id="colorScheme">
@@ -101,7 +101,7 @@
                     </div>
 
                     <!-- Abstractionism Sub-Settings -->
-                    <div id="abstractSettings" class="style-settings" data-style-group="abstract" style="display: none;">
+                    <div id="abstractSettings" class="style-settings" data-style-panel="abstract" style="display: none;">
                         <div class="form-group">
                             <label class="form-label">Abstract Type</label>
                             <select class="form-control" id="abstractType">
@@ -113,7 +113,7 @@
                     </div>
 
                     <!-- Cartoon Style Sub-Settings -->
-                    <div id="cartoonSettings" class="style-settings" data-style-group="cartoon" style="display: none;">
+                    <div id="cartoonSettings" class="style-settings" data-style-panel="cartoon" style="display: none;">
                         <div class="form-group">
                             <label class="form-label">Cartoon Style</label>
                             <select class="form-control" id="cartoonType">
@@ -184,7 +184,7 @@
                 </section>
 
                 <!-- Lighting Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="lighting">
                     <h2>Lighting</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -230,7 +230,7 @@
                 </section>
 
                 <!-- Composition Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="composition">
                     <h2>Composition</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -262,7 +262,7 @@
                 </section>
 
                 <!-- Quality Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="quality">
                     <h2>Quality and Detail</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -301,7 +301,7 @@
                 </section>
 
                 <!-- Atmosphere Section -->
-                <section class="form-section" id="atmosphereSection">
+                <section class="form-section" data-section="atmosphere" id="atmosphereSection">
                     <h2>Atmosphere</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -343,7 +343,7 @@
                 </section>
 
                 <!-- Restrictions Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="restrictions">
                     <h2>Restrictions</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -382,7 +382,7 @@
                 </section>
 
                 <!-- Additional Objects Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="objects">
                     <h2>Additional Objects</h2>
                     <div id="objectsContainer">
                         <!-- Dynamically added objects will go here -->
@@ -450,6 +450,7 @@
         </main>
     </div>
 
+    <script src="config/prompt-config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
