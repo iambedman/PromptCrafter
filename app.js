@@ -229,6 +229,9 @@ class NanoBanaConstructor {
         this.importFileInput = document.getElementById('importFileInput');
         this.resetBtn = document.getElementById('resetBtn');
 
+        // Cached defaults
+        this.defaultMainStyle = this.mainStyle ? this.mainStyle.value : '';
+
         // Slider value displays
         this.contrastValue = document.getElementById('contrastValue');
         this.sharpnessValue = document.getElementById('sharpnessValue');
@@ -832,6 +835,25 @@ class NanoBanaConstructor {
             this.downloadBtn.addEventListener('click', () => {
                 console.log('Download button clicked');
                 this.downloadJSON();
+            });
+        }
+
+        if (this.importBtn && this.importFileInput) {
+            this.importBtn.addEventListener('click', () => {
+                console.log('Import button clicked');
+                this.triggerImportDialog();
+            });
+
+            this.importFileInput.addEventListener('change', (event) => {
+                console.log('Import file selected');
+                this.handleImportFileChange(event);
+            });
+        }
+
+        if (this.resetBtn) {
+            this.resetBtn.addEventListener('click', () => {
+                console.log('Full reset requested');
+                this.confirmAndReset();
             });
         }
     }
@@ -1464,8 +1486,8 @@ class NanoBanaConstructor {
 
     downloadJSON() {
         try {
-            const jsonData = this.generateJSON();
-            const formattedJSON = JSON.stringify(jsonData, null, 2);
+            const exportPayload = this.buildExportPayload();
+            const formattedJSON = JSON.stringify(exportPayload, null, 2);
             
             const blob = new Blob([formattedJSON], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1487,6 +1509,21 @@ class NanoBanaConstructor {
             console.error('Error downloading JSON:', error);
             alert('Error downloading file: ' + error.message);
         }
+    }
+
+    buildExportPayload() {
+        const jsonData = this.generateJSON();
+        const promptText = this.generatePrompt(jsonData);
+
+        return {
+            type: 'nanobana-prompt',
+            version: this.config.version || '0.1.0',
+            schemaVersion: (this.config.storage && this.config.storage.schemaVersion) || 1,
+            exportedAt: new Date().toISOString(),
+            snapshot: this.buildAutosaveSnapshot(jsonData, promptText),
+            data: jsonData,
+            prompt: promptText
+        };
     }
 
     showDownloadSuccess() {
@@ -1527,6 +1564,435 @@ class NanoBanaConstructor {
         // Update preview after defaults are set
         this.skipNextAutosave = true;
         setTimeout(() => this.updatePreview(), 100);
+    }
+
+    triggerImportDialog() {
+        if (!this.importFileInput) return;
+        this.importFileInput.value = '';
+        this.importFileInput.click();
+    }
+
+    async handleImportFileChange(event) {
+        const file = event && event.target && event.target.files ? event.target.files[0] : null;
+        if (!file) {
+            return;
+        }
+
+        if (file.type && file.type !== 'application/json') {
+            alert('Selected file is not a JSON file. Please choose a valid JSON export.');
+            this.resetImportInput();
+            return;
+        }
+
+        try {
+            const fileContents = await this.readFileAsText(file);
+            const parsed = this.parseImportedJSON(fileContents);
+            const normalized = this.normalizeImportedPayload(parsed);
+            const migrated = this.maybeMigrateImportedPayload(normalized);
+            await this.applyImportedPayload(migrated);
+            this.showImportSuccess(file.name);
+        } catch (error) {
+            console.error('Import failed:', error);
+            this.updateAutosaveStatus('error', { error: error.message || 'Import failed' });
+            alert(`Import failed: ${error.message || error}`);
+        } finally {
+            this.resetImportInput();
+        }
+    }
+
+    resetImportInput() {
+        if (this.importFileInput) {
+            this.importFileInput.value = '';
+        }
+    }
+
+    readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || new Error('Could not read file'));
+            reader.readAsText(file);
+        });
+    }
+
+    parseImportedJSON(text) {
+        if (!text) {
+            throw new Error('File is empty.');
+        }
+
+        try {
+            return JSON.parse(text);
+        } catch (error) {
+            throw new Error('Invalid JSON format.');
+        }
+    }
+
+    normalizeImportedPayload(raw) {
+        if (!raw || typeof raw !== 'object') {
+            throw new Error('Unsupported file structure.');
+        }
+
+        // New format with metadata
+        if (raw.type === 'nanobana-prompt' || raw.snapshot || raw.data) {
+            const snapshot = raw.snapshot || (raw.data && raw.data.controls ? raw.data : null);
+            const jsonData = raw.data && raw.data.controls ? raw.data.json : raw.data;
+            const promptText = raw.prompt || (raw.data && raw.data.prompt) || null;
+
+            return {
+                type: raw.type || 'nanobana-prompt',
+                schemaVersion: raw.schemaVersion,
+                version: raw.version,
+                exportedAt: raw.exportedAt,
+                snapshot,
+                data: jsonData || null,
+                prompt: promptText
+            };
+        }
+
+        // Autosave payload structure
+        if (raw.data && raw.history) {
+            return {
+                type: 'nanobana-autosave',
+                schemaVersion: raw.schemaVersion,
+                exportedAt: raw.timestamp,
+                snapshot: raw.data || null,
+                data: (raw.data && raw.data.json) || null,
+                prompt: (raw.data && raw.data.prompt) || null
+            };
+        }
+
+        // Fallback: assume direct JSON data export
+        this.validateImportedData(raw);
+        return {
+            type: 'legacy-json',
+            schemaVersion: undefined,
+            snapshot: null,
+            data: raw,
+            prompt: null
+        };
+    }
+
+    maybeMigrateImportedPayload(payload) {
+        if (!payload) return payload;
+
+        const storageConfig = this.config.storage || {};
+        const targetVersion = storageConfig.schemaVersion;
+
+        if (payload.schemaVersion && targetVersion && payload.schemaVersion !== targetVersion) {
+            if (typeof storageConfig.migrate === 'function') {
+                try {
+                    const migrated = storageConfig.migrate(payload, targetVersion, { source: 'import' });
+                    if (migrated && typeof migrated === 'object') {
+                        return migrated;
+                    }
+                } catch (error) {
+                    console.error('Migration handler failed:', error);
+                    throw new Error('Could not migrate imported data.');
+                }
+            } else {
+                throw new Error('Imported file uses an unsupported schema version.');
+            }
+        }
+
+        return payload;
+    }
+
+    async applyImportedPayload(payload) {
+        if (!payload) {
+            throw new Error('Nothing to import.');
+        }
+
+        if (payload.snapshot && payload.snapshot.controls) {
+            console.log('Applying snapshot from imported payload');
+            this.applyFormSnapshot(payload.snapshot);
+        } else if (payload.data) {
+            console.log('Applying data from imported payload');
+            const snapshot = this.snapshotFromImportedData(payload.data, payload.prompt);
+            this.applyFormSnapshot(snapshot);
+        } else {
+            throw new Error('Imported file does not contain usable data.');
+        }
+
+        const timestamp = new Date().toISOString();
+        this.updateAutosaveStatus('restored', { timestamp, source: 'import' });
+
+        if (this.autosaveManager && this.autosaveManager.storageAvailable) {
+            const jsonData = this.generateJSON();
+            const promptText = this.generatePrompt(jsonData);
+            this.scheduleAutosave(jsonData, promptText);
+        }
+    }
+
+    snapshotFromImportedData(data, promptText) {
+        this.validateImportedData(data);
+
+        const controls = {};
+        const objects = Array.isArray(data.additional_objects)
+            ? data.additional_objects.map(obj => this.normalizeImportedObject(obj)).filter(Boolean)
+            : [];
+
+        const defaultTask = this.taskRadios && this.taskRadios.length ? this.taskRadios[0].value : 'Image Generation';
+        const { task, description } = this.splitTaskDescription(data.task, defaultTask);
+        controls.taskDescription = description;
+        const taskValues = this.taskRadios && this.taskRadios.length ? Array.from(this.taskRadios).map(radio => radio.value) : [defaultTask];
+        const selectedTask = taskValues.includes(task) ? task : taskValues[0];
+
+        const styleData = data.style || {};
+        const mainStyle = styleData.main_style || styleData.key;
+        if (mainStyle) {
+            controls.mainStyle = mainStyle;
+        }
+
+        if (styleData.preset) {
+            controls.stylePreset = styleData.preset;
+        }
+
+        if (styleData.settings && typeof styleData.settings === 'object') {
+            Object.entries(styleData.settings).forEach(([key, value]) => {
+                const controlId = this.fromSnakeCase(key);
+                if (controlId) {
+                    controls[controlId] = value;
+                }
+            });
+        }
+
+        this.applySectionDataToControls(data.lighting, controls, {
+            type: 'lightType',
+            direction: 'lightDirection',
+            scheme: 'lightingScheme',
+            temperature: 'temperature'
+        });
+
+        this.applySectionDataToControls(data.composition, controls, {
+            framing: 'framing',
+            angle: 'angle',
+            rule_of_thirds: 'ruleOfThirds'
+        });
+
+        this.applySectionDataToControls(data.quality, controls, {
+            resolution: 'resolution',
+            detail_level: 'detailLevel',
+            noise_reduction: 'noiseReduction',
+            sharpening: 'sharpening'
+        });
+
+        this.applySectionDataToControls(data.restrictions, controls, {
+            preserve_faces: 'preserveFaces',
+            preserve_composition: 'preserveComposition',
+            no_object_addition: 'noObjectAddition',
+            no_background_change: 'noBackgroundChange',
+            precise_positioning: 'precisePositioning'
+        });
+
+        if (data.camera_settings && typeof data.camera_settings === 'object') {
+            this.applySectionDataToControls(data.camera_settings, controls, {
+                iso: 'iso',
+                aperture: 'aperture',
+                shutter_speed: 'shutterSpeed',
+                focal_length: 'focalLength'
+            });
+        }
+
+        if (data.atmosphere && typeof data.atmosphere === 'object') {
+            controls.weatherCondition = data.atmosphere.weather || '';
+            controls.naturalPhenomenon = data.atmosphere.natural_phenomenon || '';
+            controls.atmosphereNotes = data.atmosphere.notes || '';
+        }
+
+        const snapshot = {
+            task: selectedTask,
+            controls,
+            objects,
+            json: data,
+            prompt: promptText || this.generatePrompt(data)
+        };
+
+        // task radio buttons are handled separately, no need to keep it in controls
+        delete snapshot.controls.task;
+
+        return snapshot;
+    }
+
+    splitTaskDescription(taskValue, defaultTask) {
+        const fallbackTask = defaultTask || (this.taskRadios && this.taskRadios.length ? this.taskRadios[0].value : 'Image Generation');
+        if (typeof taskValue !== 'string' || taskValue.length === 0) {
+            return { task: fallbackTask, description: '' };
+        }
+
+        const [maybeTask, ...rest] = taskValue.split(':');
+        if (rest.length === 0) {
+            return { task: taskValue.trim() || fallbackTask, description: '' };
+        }
+
+        const task = maybeTask.trim();
+        const description = rest.join(':').trim();
+        return { task: task || fallbackTask, description };
+    }
+
+    applySectionDataToControls(sectionData, controls, mapping) {
+        if (!sectionData || typeof sectionData !== 'object') return;
+        Object.entries(mapping).forEach(([sourceKey, controlId]) => {
+            if (Object.prototype.hasOwnProperty.call(sectionData, sourceKey)) {
+                controls[controlId] = sectionData[sourceKey];
+            }
+        });
+    }
+
+    normalizeImportedObject(obj) {
+        if (!obj || typeof obj !== 'object') return null;
+        const normalized = {};
+
+        if (obj.description) {
+            normalized.description = obj.description;
+        }
+
+        if (Array.isArray(obj.characteristics)) {
+            normalized.characteristics = obj.characteristics.join(', ');
+        } else if (typeof obj.characteristics === 'string') {
+            normalized.characteristics = obj.characteristics;
+        }
+
+        if (obj.position) {
+            normalized.position = obj.position;
+        }
+
+        if (obj.scale) {
+            normalized.scale = obj.scale;
+        }
+
+        if (Array.isArray(obj.style_tags)) {
+            normalized.styleTags = obj.style_tags.join(', ');
+        } else if (Array.isArray(obj.styleTags)) {
+            normalized.styleTags = obj.styleTags.join(', ');
+        } else if (typeof obj.style_tags === 'string') {
+            normalized.styleTags = obj.style_tags;
+        } else if (typeof obj.styleTags === 'string') {
+            normalized.styleTags = obj.styleTags;
+        }
+
+        if (
+            !normalized.description &&
+            !normalized.characteristics &&
+            !normalized.position &&
+            !normalized.scale &&
+            !normalized.styleTags
+        ) {
+            return null;
+        }
+
+        return normalized;
+    }
+
+    fromSnakeCase(value) {
+        if (!value) return '';
+        const segments = String(value).split('_');
+        const [first, ...rest] = segments;
+        return [first, ...rest.map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))].join('');
+    }
+
+    validateImportedData(data) {
+        if (!data || typeof data !== 'object') {
+            throw new Error('Imported JSON must be an object.');
+        }
+
+        if (!data.task || !data.style) {
+            throw new Error('Imported JSON is missing required fields: task or style.');
+        }
+
+        if (!data.style.main_style && !data.style.key) {
+            throw new Error('Imported JSON is missing style main_style.');
+        }
+    }
+
+    showImportSuccess(filename) {
+        if (!this.importBtn) return;
+
+        const originalText = this.importBtn.textContent;
+        const originalClass = this.importBtn.className;
+
+        this.importBtn.textContent = 'Imported';
+        this.importBtn.className = `${originalClass} btn--success`.trim();
+
+        setTimeout(() => {
+            this.importBtn.textContent = originalText;
+            this.importBtn.className = originalClass;
+        }, 2000);
+
+        console.log(`Import completed from file: ${filename}`);
+    }
+
+    confirmAndReset() {
+        const confirmed = window.confirm('This will clear the form, reset styles, and remove saved data. Continue?');
+        if (!confirmed) {
+            return;
+        }
+
+        this.performFullReset();
+    }
+
+    performFullReset() {
+        this.isRestoring = true;
+
+        if (this.autosaveManager) {
+            this.autosaveManager.clear();
+        }
+
+        if (this.objectsContainer) {
+            this.objectsContainer.innerHTML = '';
+        }
+
+        if (this.taskDescription) {
+            this.taskDescription.value = '';
+        }
+
+        if (this.taskRadios && this.taskRadios.length) {
+            this.taskRadios.forEach((radio, index) => {
+                radio.checked = index === 0;
+            });
+        }
+
+        this.resetFieldStates();
+
+        const baseStyle = this.defaultMainStyle || this.getActiveStyle();
+        if (this.mainStyle && baseStyle) {
+            this.setControlValue('mainStyle', baseStyle);
+        }
+
+        Object.entries(this.defaultValues || {}).forEach(([id, value]) => {
+            this.setControlValue(id, value);
+        });
+
+        if (this.stylePreset) {
+            this.stylePreset.value = '';
+        }
+
+        this.isRestoring = false;
+
+        if (baseStyle) {
+            this.handleStyleChange(baseStyle);
+        }
+
+        this.initializeDefaults();
+
+        this.skipNextAutosave = true;
+        this.updatePreview();
+        this.updateAutosaveStatus('idle');
+        this.showResetSuccess();
+    }
+
+    showResetSuccess() {
+        if (!this.resetBtn) return;
+
+        const originalText = this.resetBtn.textContent;
+        const originalClass = this.resetBtn.className;
+
+        this.resetBtn.textContent = 'Reset done';
+        this.resetBtn.className = `${originalClass} btn--success`.trim();
+
+        setTimeout(() => {
+            this.resetBtn.textContent = originalText;
+            this.resetBtn.className = originalClass;
+        }, 2000);
     }
 }
 
