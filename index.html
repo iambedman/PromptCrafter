@@ -38,8 +38,95 @@
                     </div>
                 </section>
 
-                <!-- Camera Settings Section -->
+                <!-- Style Section -->
                 <section class="form-section">
+                    <h2>Style and Processing</h2>
+                    <div class="form-group">
+                        <label class="form-label">Main Style</label>
+                        <select class="form-control" id="mainStyle">
+                            <option value="professional_photo" selected>Professional Photo</option>
+                            <option value="cinematic_photo">Cinematic Photography</option>
+                            <option value="documentary_photo">Documentary Photography</option>
+                            <option value="abstract">Abstractionism</option>
+                            <option value="cartoon">Cartoon Style</option>
+                            <option value="anime_style">Anime Style</option>
+                            <option value="fantasy_art">Fantasy Illustration</option>
+                            <option value="science_fiction">Science Fiction</option>
+                            <option value="dark_noir">Dark Noir</option>
+                            <option value="watercolor">Watercolor Painting</option>
+                            <option value="oil_painting">Oil Painting</option>
+                            <option value="pixel_art">Pixel Art</option>
+                            <option value="low_poly">Low Poly 3D</option>
+                            <option value="sketch_graphite">Graphite Sketch</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Style Preset</label>
+                        <div class="preset-controls">
+                            <select class="form-control" id="stylePreset">
+                                <option value="">Select preset…</option>
+                            </select>
+                            <button type="button" class="btn btn--outline btn--sm" id="resetPresetBtn">Reset</button>
+                        </div>
+                    </div>
+
+                    <!-- Professional Photo Sub-Settings -->
+                    <div id="professionalPhotoSettings" class="style-settings" data-style-group="professional_photo">
+                        <div class="form-group">
+                            <label class="form-label">Color Scheme</label>
+                            <select class="form-control" id="colorScheme">
+                                <option value="Natural" selected>Natural</option>
+                                <option value="Saturated">Saturated</option>
+                                <option value="Muted">Muted</option>
+                                <option value="Monochrome">Monochrome</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Contrast: <span id="contrastValue">50</span></label>
+                                <input type="range" class="slider" id="contrast" min="0" max="100" value="50">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Sharpness: <span id="sharpnessValue">50</span></label>
+                                <input type="range" class="slider" id="sharpness" min="0" max="100" value="50">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="backgroundBlur">
+                                <span>Background Blur</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Abstractionism Sub-Settings -->
+                    <div id="abstractSettings" class="style-settings" data-style-group="abstract" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Abstract Type</label>
+                            <select class="form-control" id="abstractType">
+                                <option value="geometric">Geometric</option>
+                                <option value="organic">Organic</option>
+                                <option value="surreal">Surreal</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Cartoon Style Sub-Settings -->
+                    <div id="cartoonSettings" class="style-settings" data-style-group="cartoon" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Cartoon Style</label>
+                            <select class="form-control" id="cartoonType">
+                                <option value="classic">Classic Animation</option>
+                                <option value="anime">Anime</option>
+                                <option value="3d_render">3D Render</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Camera Settings Section -->
+                <section class="form-section" data-section="camera">
                     <h2>Camera Settings</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -174,36 +261,6 @@
                     </div>
                 </section>
 
-                <!-- Style Section -->
-                <section class="form-section">
-                    <h2>Style and Processing</h2>
-                    <div class="form-group">
-                        <label class="form-label">Color Scheme</label>
-                        <select class="form-control" id="colorScheme">
-                            <option value="Natural" selected>Natural</option>
-                            <option value="Saturated">Saturated</option>
-                            <option value="Muted">Muted</option>
-                            <option value="Monochrome">Monochrome</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Contrast: <span id="contrastValue">50</span></label>
-                            <input type="range" class="slider" id="contrast" min="0" max="100" value="50">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Sharpness: <span id="sharpnessValue">50</span></label>
-                            <input type="range" class="slider" id="sharpness" min="0" max="100" value="50">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="backgroundBlur">
-                            <span>Background Blur</span>
-                        </label>
-                    </div>
-                </section>
-
                 <!-- Quality Section -->
                 <section class="form-section">
                     <h2>Quality and Detail</h2>
@@ -240,6 +297,48 @@
                                 <span>Sharpening</span>
                             </label>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Atmosphere Section -->
+                <section class="form-section" id="atmosphereSection">
+                    <h2>Atmosphere</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Weather</label>
+                            <select class="form-control" id="weatherCondition">
+                                <option value="">Default</option>
+                                <option value="clear">Clear</option>
+                                <option value="partly_cloudy">Partly Cloudy</option>
+                                <option value="overcast">Overcast</option>
+                                <option value="rain">Rain</option>
+                                <option value="storm">Storm</option>
+                                <option value="snow">Snow</option>
+                                <option value="fog">Fog</option>
+                                <option value="mist">Mist</option>
+                                <option value="windy">Windy</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Natural Phenomenon</label>
+                            <select class="form-control" id="naturalPhenomenon">
+                                <option value="">None</option>
+                                <option value="rainbow">Rainbow</option>
+                                <option value="aurora">Aurora Borealis</option>
+                                <option value="lightning">Lightning</option>
+                                <option value="volcanic_eruption">Volcanic Eruption</option>
+                                <option value="shooting_stars">Shooting Stars</option>
+                                <option value="galaxy">Visible Galaxy</option>
+                                <option value="meteor_shower">Meteor Shower</option>
+                                <option value="foggy_glow">Fog Glow</option>
+                                <option value="neon_glow">Neon Glow</option>
+                                <option value="sandstorm">Sandstorm</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Additional Atmosphere Notes</label>
+                        <textarea class="form-control" id="atmosphereNotes" placeholder="Describe mood, lighting nuances, scents, etc."></textarea>
                     </div>
                 </section>
 
@@ -281,6 +380,49 @@
                         </label>
                     </div>
                 </section>
+
+                <!-- Additional Objects Section -->
+                <section class="form-section">
+                    <h2>Additional Objects</h2>
+                    <div id="objectsContainer">
+                        <!-- Dynamically added objects will go here -->
+                    </div>
+                    <button type="button" class="btn btn--secondary" id="addObjectBtn" style="margin-top: 16px;">+ Add Object</button>
+                </section>
+
+                <!-- Template for a single object -->
+                <template id="objectTemplate">
+                    <div class="object-card" data-object-card>
+                        <div class="form-group">
+                            <label class="form-label">Object Description</label>
+                            <textarea class="form-control object-description" data-object-field="description" placeholder="e.g., a red ball"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Characteristics</label>
+                            <input type="text" class="form-control object-characteristics" data-object-field="characteristics" placeholder="e.g., shiny, small">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Position</label>
+                                <input type="text" class="form-control" data-object-field="position" placeholder="e.g., left foreground">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Scale</label>
+                                <select class="form-control" data-object-field="scale">
+                                    <option value="">Default</option>
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Style Tags</label>
+                            <input type="text" class="form-control" data-object-field="styleTags" placeholder="Comma separated tags">
+                        </div>
+                        <button type="button" class="btn btn--outline btn--sm remove-object-btn" data-remove-object>Remove</button>
+                    </div>
+                </template>
             </div>
 
             <!-- Right Panel - JSON Preview -->
@@ -294,6 +436,15 @@
                 </div>
                 <div class="json-preview">
                     <textarea class="json-textarea" id="jsonOutput" readonly></textarea>
+                </div>
+                <div class="prompt-preview">
+                    <div class="preview-header preview-header--secondary">
+                        <h2>Prompt Preview</h2>
+                        <div class="preview-actions">
+                            <button class="btn btn--secondary" id="copyPromptBtn">Copy Prompt</button>
+                        </div>
+                    </div>
+                    <textarea class="prompt-textarea" id="promptOutput" readonly></textarea>
                 </div>
             </div>
         </main>
