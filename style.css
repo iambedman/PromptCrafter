@@ -789,7 +789,7 @@ select.form-control {
     box-shadow: var(--shadow-md);
     height: fit-content;
     max-height: calc(100vh - var(--space-32));
-    overflow: hidden;
+    overflow: scroll;
 }
 
 .form-section {
