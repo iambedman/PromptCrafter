@@ -1111,22 +1111,70 @@ textarea.form-control {
     background: var(--color-bg-1);
 }
 
+.preview-header__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-12);
+    margin-bottom: var(--space-16);
+}
+
 .preview-header h2 {
     color: var(--color-text);
     font-size: var(--font-size-xl);
     font-weight: var(--font-weight-semibold);
-    margin: 0 0 var(--space-16) 0;
+    margin: 0;
 }
 
 .preview-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-8);
 }
 
 .preview-actions .btn {
-    flex: 1;
+    flex: 1 1 160px;
     font-size: var(--font-size-sm);
     padding: var(--space-8) var(--space-12);
+}
+
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-6);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    padding: var(--space-4) var(--space-8);
+    border-radius: var(--radius-base);
+    background: rgba(var(--color-info-rgb), var(--status-bg-opacity));
+    color: var(--color-info);
+    border: 1px solid rgba(var(--color-info-rgb), var(--status-border-opacity));
+    transition: all var(--duration-normal) var(--ease-standard);
+}
+
+.status-indicator[data-status="saving"] {
+    background: rgba(var(--color-warning-rgb), var(--status-bg-opacity));
+    color: var(--color-warning);
+    border-color: rgba(var(--color-warning-rgb), var(--status-border-opacity));
+}
+
+.status-indicator[data-status="saved"] {
+    background: rgba(var(--color-success-rgb), var(--status-bg-opacity));
+    color: var(--color-success);
+    border-color: rgba(var(--color-success-rgb), var(--status-border-opacity));
+}
+
+.status-indicator[data-status="restored"] {
+    background: rgba(var(--color-success-rgb), var(--status-bg-opacity));
+    color: var(--color-success);
+    border-color: rgba(var(--color-success-rgb), var(--status-border-opacity));
+}
+
+.status-indicator[data-status="error"] {
+    background: rgba(var(--color-error-rgb), var(--status-bg-opacity));
+    color: var(--color-error);
+    border-color: rgba(var(--color-error-rgb), var(--status-border-opacity));
 }
 
 .json-preview {

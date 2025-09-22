@@ -428,10 +428,16 @@
             <!-- Right Panel - JSON Preview -->
             <div class="preview-panel">
                 <div class="preview-header">
-                    <h2>JSON Preview</h2>
+                    <div class="preview-header__top">
+                        <h2>JSON Preview</h2>
+                        <span class="status-indicator" id="autosaveStatus" data-status="idle">Autosave ready</span>
+                    </div>
                     <div class="preview-actions">
+                        <input type="file" id="importFileInput" accept="application/json" hidden>
+                        <button class="btn btn--outline" id="importBtn">Import JSON</button>
                         <button class="btn btn--secondary" id="copyBtn">Copy JSON</button>
-                        <button class="btn btn--primary" id="downloadBtn">Download JSON file</button>
+                        <button class="btn btn--primary" id="downloadBtn">Export JSON</button>
+                        <button class="btn btn--outline" id="resetBtn">Full Reset</button>
                     </div>
                 </div>
                 <div class="json-preview">

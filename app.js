@@ -1,13 +1,162 @@
 // NanoBana JSON Prompt Constructor JavaScript
+
+class AutoSaveManager {
+    constructor(config = {}, callbacks = {}) {
+        this.key = config.key || 'nanobana:state';
+        this.schemaVersion = config.schemaVersion || 1;
+        this.debounceMs = typeof config.autosaveDebounceMs === 'number' ? config.autosaveDebounceMs : 750;
+        this.historyLimit = typeof config.historyLimit === 'number' ? config.historyLimit : 5;
+        this.callbacks = callbacks;
+        this.timer = null;
+        this.pendingData = null;
+        this.storageAvailable = this.checkStorageAvailability();
+
+        if (!this.storageAvailable) {
+            this.notifyError(new Error('Local storage is not available.'));
+            this.setStatus('disabled');
+        }
+    }
+
+    checkStorageAvailability() {
+        try {
+            if (typeof window === 'undefined' || !window.localStorage) return false;
+            const testKey = `${this.key}__test`;
+            window.localStorage.setItem(testKey, '1');
+            window.localStorage.removeItem(testKey);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    setStatus(status, meta) {
+        if (typeof this.callbacks.onStatusChange === 'function') {
+            this.callbacks.onStatusChange(status, meta);
+        }
+    }
+
+    notifyError(error) {
+        if (typeof this.callbacks.onError === 'function') {
+            this.callbacks.onError(error);
+        }
+    }
+
+    queueSave(snapshot) {
+        if (!this.storageAvailable) {
+            this.notifyError(new Error('Autosave disabled: storage unavailable.'));
+            this.setStatus('disabled');
+            return;
+        }
+
+        this.pendingData = snapshot;
+        this.setStatus('saving');
+
+        if (this.timer) {
+            clearTimeout(this.timer);
+        }
+
+        this.timer = setTimeout(() => {
+            this.persist(this.pendingData);
+        }, this.debounceMs);
+    }
+
+    persist(data) {
+        try {
+            const timestamp = new Date().toISOString();
+            const existing = this.loadRaw();
+            const history = Array.isArray(existing?.history) ? existing.history.slice() : [];
+
+            history.push({ timestamp, data });
+            if (this.historyLimit >= 0) {
+                while (history.length > this.historyLimit) {
+                    history.shift();
+                }
+            }
+
+            const payload = {
+                schemaVersion: this.schemaVersion,
+                timestamp,
+                data,
+                history
+            };
+
+            window.localStorage.setItem(this.key, JSON.stringify(payload));
+            this.setStatus('saved', { timestamp });
+        } catch (error) {
+            this.notifyError(error);
+            this.setStatus('error', { error });
+        }
+    }
+
+    loadRaw() {
+        if (!this.storageAvailable) return null;
+        try {
+            const raw = window.localStorage.getItem(this.key);
+            if (!raw) return null;
+            return JSON.parse(raw);
+        } catch (error) {
+            this.notifyError(error);
+            this.setStatus('error', { error });
+            return null;
+        }
+    }
+
+    load() {
+        const payload = this.loadRaw();
+        if (!payload) return null;
+
+        if (payload.schemaVersion === this.schemaVersion) {
+            return {
+                data: payload.data || null,
+                timestamp: payload.timestamp,
+                history: payload.history || []
+            };
+        }
+
+        if (typeof this.callbacks.onMigrate === 'function') {
+            try {
+                const migrated = this.callbacks.onMigrate(payload, this.schemaVersion);
+                if (migrated && migrated.data) {
+                    return migrated;
+                }
+            } catch (error) {
+                this.notifyError(error);
+                this.setStatus('error', { error });
+            }
+        }
+
+        return null;
+    }
+
+    clear() {
+        if (!this.storageAvailable) return;
+        try {
+            window.localStorage.removeItem(this.key);
+            this.setStatus('idle');
+        } catch (error) {
+            this.notifyError(error);
+            this.setStatus('error', { error });
+        }
+    }
+}
+
 class NanoBanaConstructor {
     constructor() {
         this.config = window.promptConfig || { styles: {}, presets: [] };
+        this.hasRestoredState = false;
+        this.isRestoring = false;
+        this.skipNextAutosave = false;
+
         this.initializeElements();
         this.initializeFromConfig();
         this.bindEvents();
         this.setupObjectControls();
-        this.handleStyleChange(this.getActiveStyle());
-        this.updatePreview();
+        this.initializeAutosave();
+
+        if (!this.hasRestoredState) {
+            this.handleStyleChange(this.getActiveStyle());
+            this.updatePreview();
+        }
     }
 
     initializeElements() {
@@ -73,7 +222,13 @@ class NanoBanaConstructor {
         this.copyBtn = document.getElementById('copyBtn');
         this.copyPromptBtn = document.getElementById('copyPromptBtn');
         this.downloadBtn = document.getElementById('downloadBtn');
-        
+
+        // Autosave & state controls
+        this.autosaveStatusEl = document.getElementById('autosaveStatus');
+        this.importBtn = document.getElementById('importBtn');
+        this.importFileInput = document.getElementById('importFileInput');
+        this.resetBtn = document.getElementById('resetBtn');
+
         // Slider value displays
         this.contrastValue = document.getElementById('contrastValue');
         this.sharpnessValue = document.getElementById('sharpnessValue');
@@ -208,6 +363,221 @@ class NanoBanaConstructor {
         }
     }
 
+    initializeAutosave() {
+        const storageConfig = this.config.storage || {};
+
+        this.autosaveManager = new AutoSaveManager(storageConfig, {
+            onStatusChange: (status, meta) => this.updateAutosaveStatus(status, meta),
+            onError: (error) => this.handleAutosaveError(error),
+            onMigrate: (payload, targetVersion) => this.migrateAutosavePayload(payload, targetVersion)
+        });
+
+        if (!this.autosaveManager || !this.autosaveManager.storageAvailable) {
+            this.updateAutosaveStatus('disabled');
+            return;
+        }
+
+        const restored = this.autosaveManager.load();
+        if (restored && restored.data) {
+            this.applyFormSnapshot(restored.data);
+            this.hasRestoredState = true;
+            this.updateAutosaveStatus('restored', { timestamp: restored.timestamp });
+            this.skipNextAutosave = true;
+        } else {
+            this.updateAutosaveStatus('idle');
+        }
+    }
+
+    migrateAutosavePayload(payload, targetVersion) {
+        if (!payload) return null;
+
+        const storageConfig = this.config.storage || {};
+        if (typeof storageConfig.migrate === 'function') {
+            try {
+                return storageConfig.migrate(payload, targetVersion);
+            } catch (error) {
+                this.handleAutosaveError(error);
+            }
+        }
+
+        return null;
+    }
+
+    updateAutosaveStatus(status, meta = {}) {
+        if (!this.autosaveStatusEl) return;
+
+        const normalized = status || 'idle';
+        this.autosaveStatusEl.dataset.status = normalized;
+
+        let message = 'Autosave ready';
+
+        if (normalized === 'saving') {
+            message = 'Saving…';
+        } else if (normalized === 'saved') {
+            message = meta.timestamp ? `Saved at ${this.formatTimestamp(meta.timestamp)}` : 'Saved';
+        } else if (normalized === 'restored') {
+            message = meta.timestamp ? `Restored from ${this.formatTimestamp(meta.timestamp)}` : 'Restored';
+        } else if (normalized === 'error') {
+            message = meta.error ? `Autosave error: ${meta.error}` : 'Autosave error';
+        } else if (normalized === 'disabled') {
+            message = 'Autosave unavailable';
+        }
+
+        this.autosaveStatusEl.textContent = message;
+    }
+
+    formatTimestamp(timestamp) {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        if (Number.isNaN(date.getTime())) return '';
+
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    }
+
+    handleAutosaveError(error) {
+        console.error('Autosave error:', error);
+        const message = error && error.message ? error.message : 'Unknown error';
+        this.updateAutosaveStatus('error', { error: message });
+    }
+
+    scheduleAutosave(jsonData, promptText) {
+        if (!this.autosaveManager || !this.autosaveManager.storageAvailable) {
+            return;
+        }
+
+        const snapshot = this.buildAutosaveSnapshot(jsonData, promptText);
+        this.autosaveManager.queueSave(snapshot);
+    }
+
+    buildAutosaveSnapshot(jsonData, promptText) {
+        return {
+            task: this.getSelectedTask(),
+            controls: this.serializeControls(),
+            objects: this.collectObjectFormState(),
+            json: jsonData,
+            prompt: promptText
+        };
+    }
+
+    serializeControls() {
+        const result = {};
+        if (!this.allControls) return result;
+
+        this.allControls.forEach(control => {
+            if (!control || !control.id) return;
+
+            if (control.type === 'checkbox') {
+                result[control.id] = control.checked;
+            } else {
+                result[control.id] = control.value;
+            }
+        });
+
+        return result;
+    }
+
+    collectObjectFormState() {
+        if (!this.objectsContainer) return [];
+
+        return Array.from(this.objectsContainer.querySelectorAll('[data-object-card]')).map(card => {
+            const entry = {};
+            const fields = card.querySelectorAll('[data-object-field]');
+
+            fields.forEach(field => {
+                const key = field.dataset.objectField;
+                if (!key) return;
+
+                if (field.type === 'checkbox') {
+                    entry[key] = field.checked;
+                } else {
+                    entry[key] = field.value || '';
+                }
+            });
+
+            return entry;
+        });
+    }
+
+    applyFormSnapshot(snapshot) {
+        if (!snapshot || typeof snapshot !== 'object') return;
+
+        const controls = snapshot.controls || {};
+        const targetStyle = controls.mainStyle || this.getActiveStyle();
+
+        this.isRestoring = true;
+
+        try {
+            if (controls.mainStyle) {
+                this.setControlValue('mainStyle', controls.mainStyle);
+            }
+
+            this.handleStyleChange(targetStyle);
+
+            Object.entries(controls).forEach(([id, value]) => {
+                if (id === 'mainStyle') return;
+                this.setControlValue(id, value);
+            });
+
+            if (snapshot.task) {
+                this.applyTaskSelection(snapshot.task);
+            }
+
+            if (Array.isArray(snapshot.objects)) {
+                this.rebuildObjectsFromState(snapshot.objects);
+            }
+        } finally {
+            this.isRestoring = false;
+        }
+
+        this.skipNextAutosave = true;
+        this.updatePreview();
+    }
+
+    applyTaskSelection(taskValue) {
+        if (!taskValue || !this.taskRadios) return;
+
+        this.taskRadios.forEach(radio => {
+            radio.checked = radio.value === taskValue;
+        });
+    }
+
+    rebuildObjectsFromState(objectsState) {
+        if (!this.objectsContainer) return;
+
+        this.objectsContainer.innerHTML = '';
+
+        if (!Array.isArray(objectsState) || objectsState.length === 0) {
+            return;
+        }
+
+        objectsState.forEach(entry => {
+            if (!entry || typeof entry !== 'object') {
+                return;
+            }
+
+            const card = this.createObjectCard();
+            if (!card) return;
+
+            this.objectsContainer.appendChild(card);
+
+            const fields = card.querySelectorAll('[data-object-field]');
+            fields.forEach(field => {
+                const key = field.dataset.objectField;
+                if (!key) return;
+
+                const value = entry && Object.prototype.hasOwnProperty.call(entry, key) ? entry[key] : '';
+
+                if (field.type === 'checkbox') {
+                    field.checked = Boolean(value);
+                } else {
+                    field.value = value || '';
+                }
+            });
+        });
+    }
+
     getStyleDefinition(styleKey) {
         if (!styleKey) return null;
         return this.config.styles ? this.config.styles[styleKey] : null;
@@ -332,7 +702,8 @@ class NanoBanaConstructor {
             'weatherCondition', 'naturalPhenomenon', 'atmosphereNotes',
             'preserveFaces', 'preserveComposition', 'noObjectAddition', 
             'noBackgroundChange', 'precisePositioning', 'objectsContainer', 'addObjectBtn', 'objectTemplate',
-            'jsonOutput', 'promptOutput', 'copyBtn', 'copyPromptBtn', 'downloadBtn'
+            'jsonOutput', 'promptOutput', 'copyBtn', 'copyPromptBtn', 'downloadBtn',
+            'autosaveStatus', 'importBtn', 'importFileInput', 'resetBtn'
         ];
 
         const missing = requiredElements.filter(id => !document.getElementById(id));
@@ -718,9 +1089,11 @@ class NanoBanaConstructor {
             control.value = value;
         }
 
-        // Trigger change events where appropriate to keep listeners informed
-        const eventName = (type === 'checkbox' || tagName === 'select') ? 'change' : 'input';
-        control.dispatchEvent(new Event(eventName, { bubbles: true }));
+        if (!this.isRestoring) {
+            // Trigger change events where appropriate to keep listeners informed
+            const eventName = (type === 'checkbox' || tagName === 'select') ? 'change' : 'input';
+            control.dispatchEvent(new Event(eventName, { bubbles: true }));
+        }
     }
 
 
@@ -967,9 +1340,15 @@ class NanoBanaConstructor {
                 console.error('JSON output element not found');
             }
 
+            const promptText = this.generatePrompt(jsonData);
             if (this.promptOutput) {
-                const promptText = this.generatePrompt(jsonData);
                 this.promptOutput.value = promptText;
+            }
+
+            if (!this.skipNextAutosave) {
+                this.scheduleAutosave(jsonData, promptText);
+            } else {
+                this.skipNextAutosave = false;
             }
         } catch (error) {
             console.error('Error generating JSON:', error);
@@ -979,6 +1358,7 @@ class NanoBanaConstructor {
             if (this.promptOutput) {
                 this.promptOutput.value = `Error generating prompt:\n${error.message}`;
             }
+            this.handleAutosaveError(error);
         }
     }
 
@@ -1145,6 +1525,7 @@ class NanoBanaConstructor {
         if (this.sharpnessValue) this.sharpnessValue.textContent = '50';
 
         // Update preview after defaults are set
+        this.skipNextAutosave = true;
         setTimeout(() => this.updatePreview(), 100);
     }
 }
@@ -1155,9 +1536,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     try {
         const constructor = new NanoBanaConstructor();
-        
-        // Initialize defaults
-        constructor.initializeDefaults();
+
+        if (!constructor.hasRestoredState) {
+            constructor.initializeDefaults();
+        }
         
         // Add keyboard shortcuts
         document.addEventListener('keydown', (e) => {
