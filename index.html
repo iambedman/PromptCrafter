@@ -16,7 +16,7 @@
             <!-- Left Panel - Settings Form -->
             <div class="settings-panel">
                 <!-- Main Task Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="task">
                     <h2>Main Task</h2>
                     <div class="radio-group">
                         <label class="radio-label">
@@ -39,7 +39,7 @@
                 </section>
 
                 <!-- Style Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="style">
                     <h2>Style and Processing</h2>
                     <div class="form-group">
                         <label class="form-label">Main Style</label>
@@ -72,7 +72,7 @@
                     </div>
 
                     <!-- Professional Photo Sub-Settings -->
-                    <div id="professionalPhotoSettings" class="style-settings" data-style-group="professional_photo">
+                    <div id="professionalPhotoSettings" class="style-settings" data-style-panel="professional_photo">
                         <div class="form-group">
                             <label class="form-label">Color Scheme</label>
                             <select class="form-control" id="colorScheme">
@@ -101,7 +101,7 @@
                     </div>
 
                     <!-- Abstractionism Sub-Settings -->
-                    <div id="abstractSettings" class="style-settings" data-style-group="abstract" style="display: none;">
+                    <div id="abstractSettings" class="style-settings" data-style-panel="abstract" style="display: none;">
                         <div class="form-group">
                             <label class="form-label">Abstract Type</label>
                             <select class="form-control" id="abstractType">
@@ -113,7 +113,7 @@
                     </div>
 
                     <!-- Cartoon Style Sub-Settings -->
-                    <div id="cartoonSettings" class="style-settings" data-style-group="cartoon" style="display: none;">
+                    <div id="cartoonSettings" class="style-settings" data-style-panel="cartoon" style="display: none;">
                         <div class="form-group">
                             <label class="form-label">Cartoon Style</label>
                             <select class="form-control" id="cartoonType">
@@ -184,7 +184,7 @@
                 </section>
 
                 <!-- Lighting Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="lighting">
                     <h2>Lighting</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -230,7 +230,7 @@
                 </section>
 
                 <!-- Composition Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="composition">
                     <h2>Composition</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -262,7 +262,7 @@
                 </section>
 
                 <!-- Quality Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="quality">
                     <h2>Quality and Detail</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -301,7 +301,7 @@
                 </section>
 
                 <!-- Atmosphere Section -->
-                <section class="form-section" id="atmosphereSection">
+                <section class="form-section" data-section="atmosphere" id="atmosphereSection">
                     <h2>Atmosphere</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -343,7 +343,7 @@
                 </section>
 
                 <!-- Restrictions Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="restrictions">
                     <h2>Restrictions</h2>
                     <div class="form-row">
                         <div class="form-group">
@@ -382,7 +382,7 @@
                 </section>
 
                 <!-- Additional Objects Section -->
-                <section class="form-section">
+                <section class="form-section" data-section="objects">
                     <h2>Additional Objects</h2>
                     <div id="objectsContainer">
                         <!-- Dynamically added objects will go here -->
@@ -392,35 +392,98 @@
 
                 <!-- Template for a single object -->
                 <template id="objectTemplate">
-                    <div class="object-card" data-object-card>
-                        <div class="form-group">
-                            <label class="form-label">Object Description</label>
-                            <textarea class="form-control object-description" data-object-field="description" placeholder="e.g., a red ball"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Characteristics</label>
-                            <input type="text" class="form-control object-characteristics" data-object-field="characteristics" placeholder="e.g., shiny, small">
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Position</label>
-                                <input type="text" class="form-control" data-object-field="position" placeholder="e.g., left foreground">
+                    <div class="object-card" data-object-card data-locked="false" data-collapsed="false">
+                        <div class="object-card__header">
+                            <div class="object-card__meta">
+                                <label class="form-label">Object ID</label>
+                                <input type="text" class="form-control" data-object-field="objectId" placeholder="obj-1">
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">Scale</label>
-                                <select class="form-control" data-object-field="scale">
-                                    <option value="">Default</option>
-                                    <option value="small">Small</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="large">Large</option>
-                                </select>
+                            <div class="object-card__state" data-object-state-indicators></div>
+                            <div class="object-card__actions">
+                                <button type="button" class="btn btn--outline btn--sm" data-object-action="duplicate">Duplicate</button>
+                                <button type="button" class="btn btn--outline btn--sm" data-object-action="collapse">Collapse</button>
+                                <button type="button" class="btn btn--outline btn--sm" data-object-action="lock">Lock</button>
+                                <button type="button" class="btn btn--outline btn--sm remove-object-btn" data-remove-object>Remove</button>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Style Tags</label>
-                            <input type="text" class="form-control" data-object-field="styleTags" placeholder="Comma separated tags">
+                        <div class="object-card__body">
+                            <div class="form-group">
+                                <label class="form-label">Object Description</label>
+                                <textarea class="form-control object-description" data-object-field="description" placeholder="e.g., focal object, pose, mood"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Characteristics</label>
+                                <input type="text" class="form-control object-characteristics" data-object-field="characteristics" placeholder="Comma separated traits">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Priority</label>
+                                    <select class="form-control" data-object-field="priority">
+                                        <option value="primary">Primary</option>
+                                        <option value="secondary">Secondary</option>
+                                        <option value="supporting">Supporting</option>
+                                        <option value="background">Background</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Weight</label>
+                                    <select class="form-control" data-object-field="weight">
+                                        <option value="featherlight">Featherlight</option>
+                                        <option value="light">Light</option>
+                                        <option value="balanced" selected>Balanced</option>
+                                        <option value="heavy">Heavy</option>
+                                        <option value="massive">Massive</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Scale</label>
+                                    <select class="form-control" data-object-field="scale">
+                                        <option value="micro">Micro</option>
+                                        <option value="small">Small</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="large">Large</option>
+                                        <option value="colossal">Colossal</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Position</label>
+                                    <input type="text" class="form-control" data-object-field="position" placeholder="left foreground, upper third, etc.">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Importance</label>
+                                    <input type="number" class="form-control" data-object-field="importance" min="0" max="100" step="10" value="50">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Material</label>
+                                    <input type="text" class="form-control" data-object-field="material" placeholder="wood, chrome, plasma">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Structure</label>
+                                    <input type="text" class="form-control" data-object-field="structure" placeholder="layered, crystalline">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Texture</label>
+                                    <input type="text" class="form-control" data-object-field="texture" placeholder="matte, glossy">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Highlight Tags (tag:color)</label>
+                                <input type="text" class="form-control" data-object-field="highlightTags" placeholder="focus:#ffd400, danger:#ff5f56">
+                                <div class="highlight-tags-preview" data-object-highlight-preview></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Related Objects (IDs)</label>
+                                <input type="text" class="form-control" data-object-field="interactions" placeholder="obj-1, obj-2">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Interaction Notes</label>
+                                <textarea class="form-control" data-object-field="interactionNotes" placeholder="Describe how this object interacts with others"></textarea>
+                            </div>
                         </div>
-                        <button type="button" class="btn btn--outline btn--sm remove-object-btn" data-remove-object>Remove</button>
                     </div>
                 </template>
             </div>
@@ -428,10 +491,16 @@
             <!-- Right Panel - JSON Preview -->
             <div class="preview-panel">
                 <div class="preview-header">
-                    <h2>JSON Preview</h2>
+                    <div class="preview-header__top">
+                        <h2>JSON Preview</h2>
+                        <span class="status-indicator" id="autosaveStatus" data-status="idle">Autosave ready</span>
+                    </div>
                     <div class="preview-actions">
+                        <input type="file" id="importFileInput" accept="application/json" hidden>
+                        <button class="btn btn--outline" id="importBtn">Import JSON</button>
                         <button class="btn btn--secondary" id="copyBtn">Copy JSON</button>
-                        <button class="btn btn--primary" id="downloadBtn">Download JSON file</button>
+                        <button class="btn btn--primary" id="downloadBtn">Export JSON</button>
+                        <button class="btn btn--outline" id="resetBtn">Full Reset</button>
                     </div>
                 </div>
                 <div class="json-preview">
@@ -450,6 +519,7 @@
         </main>
     </div>
 
+    <script src="config/prompt-config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
