@@ -317,6 +317,12 @@ class NanoBanaConstructor {
 
         this.objectConfig = this.config.objects || {};
         this.objectDefaults = this.buildObjectDefaults();
+        this.highlightTagPalette = Array.isArray(this.objectConfig.highlightTagPalette)
+            ? this.objectConfig.highlightTagPalette.slice()
+            : [];
+        this.highlightTagPaletteIndex = this.buildHighlightTagPaletteIndex(this.highlightTagPalette);
+        this.objectStateLabels = this.buildObjectStateLabels();
+        this.objectFieldMetadata = this.buildObjectFieldMetadata();
     }
 
     buildBaseDefaults() {
@@ -393,6 +399,88 @@ class NanoBanaConstructor {
         }
 
         return defaults;
+    }
+
+    buildHighlightTagPaletteIndex(palette) {
+        const map = new Map();
+        if (!Array.isArray(palette)) {
+            return map;
+        }
+
+        palette.forEach(entry => {
+            if (!entry || typeof entry !== 'object') return;
+            const normalized = { ...entry };
+            if (typeof normalized.key === 'string') {
+                map.set(normalized.key.toLowerCase(), normalized);
+            }
+            if (typeof normalized.label === 'string') {
+                map.set(normalized.label.toLowerCase(), normalized);
+            }
+        });
+
+        return map;
+    }
+
+    resolveHighlightTagPaletteEntry(tagValue) {
+        if (!tagValue || typeof tagValue !== 'string') {
+            return null;
+        }
+
+        const lookupKey = tagValue.toLowerCase();
+        if (this.highlightTagPaletteIndex && this.highlightTagPaletteIndex.has(lookupKey)) {
+            return this.highlightTagPaletteIndex.get(lookupKey);
+        }
+
+        return null;
+    }
+
+    buildObjectStateLabels() {
+        const stateConfig = (this.objectConfig && this.objectConfig.states) || {};
+        const lockStates = Array.isArray(stateConfig.lock) ? stateConfig.lock : [];
+        const collapseStates = Array.isArray(stateConfig.collapse) ? stateConfig.collapse : [];
+
+        return {
+            locked: this.humanizeValue(lockStates[0] || 'locked'),
+            unlocked: this.humanizeValue(lockStates[1] || 'unlocked'),
+            collapsed: this.humanizeValue(collapseStates[1] || 'collapsed'),
+            expanded: this.humanizeValue(collapseStates[0] || 'expanded')
+        };
+    }
+
+    getObjectStateLabel(stateKey) {
+        if (!stateKey || typeof stateKey !== 'string') {
+            return '';
+        }
+
+        if (this.objectStateLabels && this.objectStateLabels[stateKey]) {
+            return this.objectStateLabels[stateKey];
+        }
+
+        return this.humanizeValue(stateKey);
+    }
+
+    buildObjectFieldMetadata() {
+        const metadata = {};
+        const additionalSettings = Array.isArray(this.objectConfig.additionalObjectSettings)
+            ? this.objectConfig.additionalObjectSettings
+            : [];
+
+        additionalSettings.forEach(setting => {
+            if (!setting || typeof setting !== 'object' || !setting.key) return;
+            metadata[setting.key] = {
+                label: setting.label,
+                placeholder: setting.placeholder,
+                description: setting.description,
+                options: Array.isArray(setting.options) ? setting.options.slice() : undefined,
+                default: setting.default,
+                min: setting.min,
+                max: setting.max,
+                step: setting.step,
+                type: setting.type
+            };
+        });
+
+        return metadata;
     }
 
     populateStyleOptions(styles) {
@@ -1008,11 +1096,121 @@ class NanoBanaConstructor {
         return card;
     }
 
+    applyObjectFieldMetadata(card, data = {}) {
+        if (!card || !this.objectFieldMetadata) {
+            return;
+        }
+
+        const fields = card.querySelectorAll('[data-object-field]');
+        fields.forEach(field => {
+            const key = field.dataset.objectField;
+            if (!key) return;
+            const meta = this.objectFieldMetadata[key];
+            if (!meta) return;
+
+            const wrapper = this.getFieldWrapper(field);
+
+            if (meta.label && wrapper) {
+                const labelEl = wrapper.querySelector('.form-label');
+                if (labelEl) {
+                    labelEl.textContent = meta.label;
+                }
+            }
+
+            if (meta.placeholder && 'placeholder' in field) {
+                field.placeholder = meta.placeholder;
+            }
+
+            if (meta.description) {
+                field.title = meta.description;
+                if (wrapper) {
+                    let hint = wrapper.querySelector('[data-field-hint]');
+                    if (!hint) {
+                        hint = document.createElement('div');
+                        hint.className = 'form-hint';
+                        hint.dataset.fieldHint = 'true';
+                        wrapper.appendChild(hint);
+                    }
+                    hint.textContent = meta.description;
+                }
+            } else if (wrapper) {
+                field.removeAttribute('title');
+                const hint = wrapper.querySelector('[data-field-hint]');
+                if (hint) {
+                    hint.remove();
+                }
+            }
+
+            if (field.tagName.toLowerCase() === 'select' && Array.isArray(meta.options)) {
+                const targetValue = data[key] ?? field.value;
+                this.syncSelectOptions(field, meta.options, meta.default, targetValue);
+            }
+
+            if ((field.type === 'number' || field.type === 'range') && (meta.min !== undefined || meta.max !== undefined || meta.step !== undefined)) {
+                if (meta.min !== undefined) {
+                    field.min = String(meta.min);
+                }
+                if (meta.max !== undefined) {
+                    field.max = String(meta.max);
+                }
+                if (meta.step !== undefined) {
+                    field.step = String(meta.step);
+                }
+            }
+        });
+    }
+
+    syncSelectOptions(selectElement, options, defaultValue, targetValue) {
+        const existingValue = typeof targetValue === 'string' && targetValue.length > 0
+            ? targetValue
+            : selectElement.value;
+
+        const normalizedOptions = options.map(option => {
+            if (typeof option === 'string') {
+                return {
+                    value: option,
+                    label: this.humanizeValue(option)
+                };
+            }
+            if (option && typeof option === 'object') {
+                return {
+                    value: option.value || option.key,
+                    label: option.label || this.humanizeValue(option.value || option.key)
+                };
+            }
+            return null;
+        }).filter(Boolean);
+
+        if (normalizedOptions.length === 0) {
+            return;
+        }
+
+        const previousSelection = selectElement.value;
+        selectElement.innerHTML = '';
+
+        normalizedOptions.forEach(option => {
+            const optionEl = document.createElement('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.label;
+            selectElement.appendChild(optionEl);
+        });
+
+        const desiredValue = normalizedOptions.find(option => option.value === existingValue)
+            ? existingValue
+            : (defaultValue || normalizedOptions[0].value);
+
+        selectElement.value = desiredValue || previousSelection;
+    }
+
     attachObjectCardEvents(card) {
         const inputs = card.querySelectorAll('[data-object-field]');
         inputs.forEach(input => {
             const eventName = input.tagName.toLowerCase() === 'select' || input.type === 'number' ? 'change' : 'input';
             input.addEventListener(eventName, () => this.updatePreview());
+
+            if (input.dataset.objectField === 'highlightTags') {
+                input.addEventListener('input', () => this.renderHighlightTagPreview(card));
+            }
 
             if (input.dataset.objectField === 'objectId') {
                 input.addEventListener('blur', () => {
@@ -1062,6 +1260,8 @@ class NanoBanaConstructor {
     populateObjectCard(card, data) {
         if (!card || !data) return;
 
+        this.applyObjectFieldMetadata(card, data);
+
         const fields = card.querySelectorAll('[data-object-field]');
         fields.forEach(field => {
             const key = field.dataset.objectField;
@@ -1101,6 +1301,8 @@ class NanoBanaConstructor {
 
         this.applyCardLockState(card);
         this.applyCardCollapseState(card);
+        this.updateObjectStateIndicators(card);
+        this.renderHighlightTagPreview(card, this.parseHighlightTagsInput(data.highlightTags));
     }
 
     getObjectCardFormValues(card) {
@@ -1180,6 +1382,8 @@ class NanoBanaConstructor {
         if (lockBtn) {
             this.updateLockButtonLabel(card, lockBtn);
         }
+
+        this.updateObjectStateIndicators(card);
     }
 
     applyCardLockState(card) {
@@ -1235,6 +1439,87 @@ class NanoBanaConstructor {
         if (!button || !card) return;
         const locked = card.dataset.locked === 'true';
         button.textContent = locked ? 'Unlock' : 'Lock';
+    }
+
+    updateObjectStateIndicators(card) {
+        if (!card) return;
+        const container = card.querySelector('[data-object-state-indicators]');
+        if (!container) return;
+
+        const locked = card.dataset.locked === 'true';
+        const collapsed = card.dataset.collapsed === 'true';
+
+        container.innerHTML = '';
+
+        const activeStates = [];
+        if (locked) {
+            activeStates.push('locked');
+        }
+        if (collapsed) {
+            activeStates.push('collapsed');
+        }
+
+        if (activeStates.length === 0) {
+            container.dataset.empty = 'true';
+            container.style.display = 'none';
+            return;
+        }
+
+        container.dataset.empty = 'false';
+        container.style.display = '';
+
+        activeStates.forEach(stateKey => {
+            const badge = document.createElement('span');
+            badge.className = 'object-state-badge';
+            badge.dataset.state = stateKey;
+            const label = this.getObjectStateLabel(stateKey);
+            badge.textContent = label;
+            container.appendChild(badge);
+        });
+    }
+
+    renderHighlightTagPreview(card, parsedTags = null) {
+        if (!card) return;
+        const preview = card.querySelector('[data-object-highlight-preview]');
+        if (!preview) return;
+
+        let tags = Array.isArray(parsedTags) ? parsedTags : null;
+        if (!tags) {
+            const input = card.querySelector('[data-object-field="highlightTags"]');
+            const value = input && typeof input.value === 'string' ? input.value : '';
+            tags = this.parseHighlightTagsInput(value);
+        }
+
+        preview.innerHTML = '';
+
+        if (!tags || tags.length === 0) {
+            preview.dataset.empty = 'true';
+            return;
+        }
+
+        preview.dataset.empty = 'false';
+
+        tags.forEach(entry => {
+            if (!entry || typeof entry.tag !== 'string') return;
+            const chip = document.createElement('span');
+            chip.className = 'highlight-tag-chip';
+
+            const paletteEntry = this.resolveHighlightTagPaletteEntry(entry.tag);
+            const label = paletteEntry && paletteEntry.label
+                ? paletteEntry.label
+                : this.humanizeValue(entry.tag);
+            chip.textContent = label;
+
+            const color = entry.color || (paletteEntry && paletteEntry.color) || null;
+            if (color) {
+                chip.style.setProperty('--chip-color', color);
+            } else {
+                chip.style.removeProperty('--chip-color');
+            }
+
+            chip.title = color ? `${entry.tag} (${color})` : entry.tag;
+            preview.appendChild(chip);
+        });
     }
 
     generateObjectId() {
@@ -1417,10 +1702,18 @@ class NanoBanaConstructor {
         if (Array.isArray(obj.highlight_tags) && obj.highlight_tags.length > 0) {
             const tags = obj.highlight_tags.map(tag => {
                 if (!tag) return null;
-                if (typeof tag === 'string') return tag;
-                const label = tag.tag || tag.key || tag.label || tag.name;
-                if (!label) return null;
-                return tag.color ? `${label} (${tag.color})` : label;
+                if (typeof tag === 'string') {
+                    const paletteMatch = this.resolveHighlightTagPaletteEntry(tag);
+                    const label = paletteMatch && paletteMatch.label ? paletteMatch.label : this.humanizeValue(tag);
+                    const color = paletteMatch && paletteMatch.color ? paletteMatch.color : null;
+                    return color ? `${label} (${color})` : label;
+                }
+                const rawLabel = tag.tag || tag.key || tag.label || tag.name;
+                if (!rawLabel) return null;
+                const paletteMatch = this.resolveHighlightTagPaletteEntry(rawLabel);
+                const displayLabel = paletteMatch && paletteMatch.label ? paletteMatch.label : this.humanizeValue(rawLabel);
+                const color = tag.color || (paletteMatch && paletteMatch.color) || null;
+                return color ? `${displayLabel} (${color})` : displayLabel;
             }).filter(Boolean);
             if (tags.length) {
                 segments.push(`highlight tags: ${tags.join(', ')}`);
@@ -1433,10 +1726,11 @@ class NanoBanaConstructor {
 
         if (obj.states && (obj.states.locked || obj.states.collapsed)) {
             const stateFlags = [];
-            if (obj.states.locked) stateFlags.push('locked');
-            if (obj.states.collapsed) stateFlags.push('collapsed');
-            if (stateFlags.length) {
-                segments.push(`state: ${stateFlags.join(', ')}`);
+            if (obj.states.locked) stateFlags.push(this.getObjectStateLabel('locked'));
+            if (obj.states.collapsed) stateFlags.push(this.getObjectStateLabel('collapsed'));
+            const cleanFlags = stateFlags.filter(Boolean);
+            if (cleanFlags.length) {
+                segments.push(`state: ${cleanFlags.join(', ')}`);
             }
         }
 
@@ -1458,14 +1752,13 @@ class NanoBanaConstructor {
             .map(token => token.trim())
             .filter(Boolean)
             .map(entry => {
-                const [tag, color] = entry.split(':').map(part => part.trim());
-                if (!tag) return null;
-                const paletteMatch = Array.isArray(this.objectConfig.highlightTagPalette)
-                    ? this.objectConfig.highlightTagPalette.find(item => item.key === tag || item.label === tag)
-                    : null;
+                const [rawTag, color] = entry.split(':').map(part => part.trim());
+                if (!rawTag) return null;
+                const paletteMatch = this.resolveHighlightTagPaletteEntry(rawTag);
+                const canonicalTag = paletteMatch && paletteMatch.key ? paletteMatch.key : rawTag;
                 const resolvedColor = color || (paletteMatch ? paletteMatch.color : undefined);
                 return {
-                    tag,
+                    tag: canonicalTag,
                     color: resolvedColor || undefined
                 };
             })

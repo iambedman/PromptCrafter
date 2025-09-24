@@ -533,6 +533,13 @@ select.form-control {
   margin-bottom: var(--space-16);
 }
 
+.form-hint {
+  margin-top: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
 /* Card component */
 .card {
   background-color: var(--color-surface);
@@ -950,6 +957,28 @@ select.form-control {
     flex: 1;
 }
 
+.object-card__state {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+    min-height: 28px;
+}
+
+.object-state-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: 0 var(--space-8);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(var(--color-brown-600-rgb), 0.12);
+    color: var(--color-slate-500);
+}
+
 .object-card__actions {
     display: flex;
     gap: var(--space-8);
@@ -987,6 +1016,41 @@ select.form-control {
 
 .object-card .remove-object-btn {
     justify-self: start;
+}
+
+.highlight-tags-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    margin-top: var(--space-8);
+}
+
+.highlight-tags-preview[data-empty="true"] {
+    display: none;
+}
+
+.highlight-tag-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--color-text-primary);
+    background: rgba(var(--color-brown-600-rgb), 0.08);
+    border: 1px solid rgba(var(--color-brown-600-rgb), 0.16);
+}
+
+.highlight-tag-chip::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--chip-color, var(--color-primary));
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
 .preset-controls {
