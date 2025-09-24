@@ -146,6 +146,9 @@ class NanoBanaConstructor {
         this.hasRestoredState = false;
         this.isRestoring = false;
         this.skipNextAutosave = false;
+        this.objectConfig = {};
+        this.objectDefaults = {};
+        this.objectIdCounter = 0;
 
         this.initializeElements();
         this.initializeFromConfig();
@@ -311,6 +314,9 @@ class NanoBanaConstructor {
         }, {});
 
         this.populateStyleOptions(styles);
+
+        this.objectConfig = this.config.objects || {};
+        this.objectDefaults = this.buildObjectDefaults();
     }
 
     buildBaseDefaults() {
@@ -340,6 +346,53 @@ class NanoBanaConstructor {
             naturalPhenomenon: '',
             atmosphereNotes: ''
         };
+    }
+
+    buildObjectDefaults() {
+        const defaults = {
+            objectId: '',
+            description: '',
+            characteristics: '',
+            priority: 'primary',
+            weight: 'balanced',
+            scale: 'medium',
+            position: '',
+            importance: '50',
+            material: '',
+            structure: '',
+            texture: '',
+            highlightTags: '',
+            interactions: '',
+            interactionNotes: '',
+            locked: false,
+            collapsed: false
+        };
+
+        const configDefaults = this.objectConfig && this.objectConfig.defaults ? this.objectConfig.defaults : {};
+        if (configDefaults) {
+            defaults.priority = configDefaults.priority || defaults.priority;
+            defaults.weight = configDefaults.weight || defaults.weight;
+            defaults.scale = configDefaults.scale || defaults.scale;
+            defaults.position = configDefaults.position || defaults.position;
+            defaults.material = configDefaults.material || defaults.material;
+            defaults.structure = configDefaults.structure || defaults.structure;
+            defaults.texture = configDefaults.texture || defaults.texture;
+            defaults.interactionNotes = configDefaults.interactionNotes || defaults.interactionNotes;
+
+            if (Array.isArray(configDefaults.highlightTags) && configDefaults.highlightTags.length > 0) {
+                defaults.highlightTags = this.formatHighlightTagsForInput(configDefaults.highlightTags);
+            }
+
+            if (Array.isArray(configDefaults.interactions) && configDefaults.interactions.length > 0) {
+                defaults.interactions = configDefaults.interactions.join(', ');
+            }
+
+            if (typeof configDefaults.importance === 'number') {
+                defaults.importance = String(configDefaults.importance);
+            }
+        }
+
+        return defaults;
     }
 
     populateStyleOptions(styles) {
@@ -484,23 +537,7 @@ class NanoBanaConstructor {
     collectObjectFormState() {
         if (!this.objectsContainer) return [];
 
-        return Array.from(this.objectsContainer.querySelectorAll('[data-object-card]')).map(card => {
-            const entry = {};
-            const fields = card.querySelectorAll('[data-object-field]');
-
-            fields.forEach(field => {
-                const key = field.dataset.objectField;
-                if (!key) return;
-
-                if (field.type === 'checkbox') {
-                    entry[key] = field.checked;
-                } else {
-                    entry[key] = field.value || '';
-                }
-            });
-
-            return entry;
-        });
+        return Array.from(this.objectsContainer.querySelectorAll('[data-object-card]')).map(card => this.getObjectCardFormValues(card));
     }
 
     applyFormSnapshot(snapshot) {
@@ -560,25 +597,88 @@ class NanoBanaConstructor {
                 return;
             }
 
-            const card = this.createObjectCard();
+            const normalized = this.normalizePersistedObject(entry);
+            const card = this.createObjectCard(normalized);
             if (!card) return;
 
             this.objectsContainer.appendChild(card);
-
-            const fields = card.querySelectorAll('[data-object-field]');
-            fields.forEach(field => {
-                const key = field.dataset.objectField;
-                if (!key) return;
-
-                const value = entry && Object.prototype.hasOwnProperty.call(entry, key) ? entry[key] : '';
-
-                if (field.type === 'checkbox') {
-                    field.checked = Boolean(value);
-                } else {
-                    field.value = value || '';
-                }
-            });
         });
+    }
+
+    normalizePersistedObject(entry) {
+        const base = { ...this.objectDefaults };
+
+        if (!entry || typeof entry !== 'object') {
+            return base;
+        }
+
+        const normalized = { ...base };
+
+        const objectId = entry.objectId || entry.id;
+        if (objectId) {
+            normalized.objectId = objectId;
+        }
+
+        if (typeof entry.description === 'string') {
+            normalized.description = entry.description;
+        }
+
+        if (Array.isArray(entry.characteristics)) {
+            normalized.characteristics = entry.characteristics.join(', ');
+        } else if (typeof entry.characteristics === 'string') {
+            normalized.characteristics = entry.characteristics;
+        }
+
+        const settings = entry.additional_object_settings || {};
+
+        normalized.priority = settings.priority || entry.priority || normalized.priority;
+        normalized.weight = settings.weight || entry.weight || normalized.weight;
+        normalized.scale = settings.scale || entry.scale || normalized.scale;
+        normalized.position = settings.position || entry.position || normalized.position;
+        normalized.material = settings.material || entry.material || normalized.material;
+        normalized.structure = settings.structure || entry.structure || normalized.structure;
+        normalized.texture = settings.texture || entry.texture || normalized.texture;
+        normalized.interactionNotes = settings.interaction_notes || entry.interactionNotes || normalized.interactionNotes;
+
+        if (typeof settings.importance === 'number') {
+            normalized.importance = String(settings.importance);
+        } else if (typeof entry.importance === 'number' || typeof entry.importance === 'string') {
+            normalized.importance = String(entry.importance);
+        }
+
+        if (Array.isArray(settings.interactions)) {
+            normalized.interactions = settings.interactions.join(', ');
+        } else if (entry.relations && Array.isArray(entry.relations.interacts_with)) {
+            normalized.interactions = entry.relations.interacts_with.join(', ');
+        } else if (typeof entry.interactions === 'string') {
+            normalized.interactions = entry.interactions;
+        }
+
+        if (Array.isArray(entry.highlightTags)) {
+            normalized.highlightTags = this.formatHighlightTagsForInput(entry.highlightTags);
+        } else if (Array.isArray(entry.highlight_tags)) {
+            normalized.highlightTags = this.formatHighlightTagsForInput(entry.highlight_tags);
+        } else if (typeof entry.highlightTags === 'string') {
+            normalized.highlightTags = entry.highlightTags;
+        } else if (typeof entry.styleTags === 'string') {
+            normalized.highlightTags = entry.styleTags;
+        }
+
+        if (typeof entry.interactionNotes === 'string' && !normalized.interactionNotes) {
+            normalized.interactionNotes = entry.interactionNotes;
+        }
+
+        if (typeof entry.position === 'string' && !normalized.position) {
+            normalized.position = entry.position;
+        }
+
+        const locked = entry.locked ?? entry?.states?.locked ?? entry?.cardState?.locked;
+        const collapsed = entry.collapsed ?? entry?.states?.collapsed ?? entry?.cardState?.collapsed;
+
+        normalized.locked = this.toBoolean(locked);
+        normalized.collapsed = this.toBoolean(collapsed);
+
+        return normalized;
     }
 
     getStyleDefinition(styleKey) {
@@ -865,6 +965,12 @@ class NanoBanaConstructor {
 
         // Attach listeners to existing cards (if any)
         this.objectsContainer.querySelectorAll('[data-object-card]').forEach(card => {
+            const initialData = this.getObjectCardFormValues(card);
+            this.setObjectCardState(card, {
+                locked: initialData.locked,
+                collapsed: initialData.collapsed
+            });
+            this.populateObjectCard(card, { ...this.objectDefaults, ...initialData });
             this.attachObjectCardEvents(card);
         });
 
@@ -877,7 +983,7 @@ class NanoBanaConstructor {
         });
     }
 
-    createObjectCard() {
+    createObjectCard(initialData = null) {
         const fragment = this.objectTemplate.content.cloneNode(true);
         const card = fragment.querySelector('[data-object-card]');
         if (!card) {
@@ -885,6 +991,19 @@ class NanoBanaConstructor {
             return document.createElement('div');
         }
 
+        const data = { ...this.objectDefaults, ...(initialData || {}) };
+
+        if (!data.objectId) {
+            data.objectId = this.generateObjectId();
+        } else {
+            this.registerExistingObjectId(data.objectId);
+        }
+
+        this.populateObjectCard(card, data);
+        this.setObjectCardState(card, {
+            locked: Boolean(data.locked),
+            collapsed: Boolean(data.collapsed)
+        });
         this.attachObjectCardEvents(card);
         return card;
     }
@@ -892,17 +1011,528 @@ class NanoBanaConstructor {
     attachObjectCardEvents(card) {
         const inputs = card.querySelectorAll('[data-object-field]');
         inputs.forEach(input => {
-            const eventName = input.tagName.toLowerCase() === 'select' ? 'change' : 'input';
+            const eventName = input.tagName.toLowerCase() === 'select' || input.type === 'number' ? 'change' : 'input';
             input.addEventListener(eventName, () => this.updatePreview());
+
+            if (input.dataset.objectField === 'objectId') {
+                input.addEventListener('blur', () => {
+                    const currentValue = input.value ? input.value.trim() : '';
+                    if (!currentValue) {
+                        const newId = this.generateObjectId();
+                        input.value = newId;
+                        this.registerExistingObjectId(newId);
+                    } else {
+                        this.registerExistingObjectId(currentValue);
+                    }
+                    this.updatePreview();
+                });
+            }
         });
 
         const removeBtn = card.querySelector('[data-remove-object]');
         if (removeBtn) {
             removeBtn.addEventListener('click', () => {
+                if (card.dataset.locked === 'true') {
+                    window.alert('Unlock the object card before removing it.');
+                    return;
+                }
                 card.remove();
                 this.updatePreview();
             });
         }
+
+        const duplicateBtn = card.querySelector('[data-object-action="duplicate"]');
+        if (duplicateBtn) {
+            duplicateBtn.addEventListener('click', () => this.duplicateObjectCard(card));
+        }
+
+        const collapseBtn = card.querySelector('[data-object-action="collapse"]');
+        if (collapseBtn) {
+            collapseBtn.addEventListener('click', () => this.toggleObjectCollapse(card, collapseBtn));
+            this.updateCollapseButtonLabel(card, collapseBtn);
+        }
+
+        const lockBtn = card.querySelector('[data-object-action="lock"]');
+        if (lockBtn) {
+            lockBtn.addEventListener('click', () => this.toggleObjectLock(card, lockBtn));
+            this.updateLockButtonLabel(card, lockBtn);
+        }
+    }
+
+    populateObjectCard(card, data) {
+        if (!card || !data) return;
+
+        const fields = card.querySelectorAll('[data-object-field]');
+        fields.forEach(field => {
+            const key = field.dataset.objectField;
+            if (!key) return;
+
+            if (key === 'importance') {
+                const value = data[key] ?? this.objectDefaults.importance;
+                field.value = value !== undefined ? value : '';
+                return;
+            }
+
+            if (key === 'locked' || key === 'collapsed') {
+                field.checked = Boolean(data[key]);
+                return;
+            }
+
+            const value = data[key];
+            if (value === undefined || value === null) {
+                field.value = '';
+            } else {
+                field.value = value;
+            }
+        });
+
+        card.dataset.locked = String(this.toBoolean(data.locked));
+        card.dataset.collapsed = String(this.toBoolean(data.collapsed));
+
+        const collapseBtn = card.querySelector('[data-object-action="collapse"]');
+        if (collapseBtn) {
+            this.updateCollapseButtonLabel(card, collapseBtn);
+        }
+
+        const lockBtn = card.querySelector('[data-object-action="lock"]');
+        if (lockBtn) {
+            this.updateLockButtonLabel(card, lockBtn);
+        }
+
+        this.applyCardLockState(card);
+        this.applyCardCollapseState(card);
+    }
+
+    getObjectCardFormValues(card) {
+        if (!card) return { ...this.objectDefaults };
+
+        const result = { ...this.objectDefaults };
+        const fields = card.querySelectorAll('[data-object-field]');
+        fields.forEach(field => {
+            const key = field.dataset.objectField;
+            if (!key) return;
+            if (field.type === 'checkbox') {
+                result[key] = field.checked;
+            } else {
+                result[key] = field.value || '';
+            }
+        });
+
+        result.locked = card.dataset.locked === 'true';
+        result.collapsed = card.dataset.collapsed === 'true';
+
+        return result;
+    }
+
+    duplicateObjectCard(card) {
+        if (!card) return;
+        const rawData = this.getObjectCardFormValues(card);
+        const duplicateData = {
+            ...rawData,
+            objectId: '',
+            locked: false,
+            collapsed: false
+        };
+
+        const newCard = this.createObjectCard(duplicateData);
+        this.objectsContainer.appendChild(newCard);
+        this.updatePreview();
+    }
+
+    toggleObjectCollapse(card, button) {
+        if (!card) return;
+        const collapsed = card.dataset.collapsed === 'true';
+        this.setObjectCardState(card, { collapsed: !collapsed });
+        if (button) {
+            this.updateCollapseButtonLabel(card, button);
+        }
+        this.updatePreview();
+    }
+
+    toggleObjectLock(card, button) {
+        if (!card) return;
+        const locked = card.dataset.locked === 'true';
+        this.setObjectCardState(card, { locked: !locked });
+        if (button) {
+            this.updateLockButtonLabel(card, button);
+        }
+        this.updatePreview();
+    }
+
+    setObjectCardState(card, { locked, collapsed }) {
+        if (!card) return;
+        if (locked !== undefined) {
+            card.dataset.locked = String(this.toBoolean(locked));
+        }
+        if (collapsed !== undefined) {
+            card.dataset.collapsed = String(this.toBoolean(collapsed));
+        }
+
+        this.applyCardLockState(card);
+        this.applyCardCollapseState(card);
+
+        const collapseBtn = card.querySelector('[data-object-action="collapse"]');
+        if (collapseBtn) {
+            this.updateCollapseButtonLabel(card, collapseBtn);
+        }
+
+        const lockBtn = card.querySelector('[data-object-action="lock"]');
+        if (lockBtn) {
+            this.updateLockButtonLabel(card, lockBtn);
+        }
+    }
+
+    applyCardLockState(card) {
+        if (!card) return;
+        const locked = card.dataset.locked === 'true';
+        const inputs = card.querySelectorAll('[data-object-field]');
+        inputs.forEach(input => {
+            if (input.dataset.objectField === 'objectId') {
+                if (locked) {
+                    input.dataset.lockPrevReadonly = input.readOnly ? 'true' : 'false';
+                    input.readOnly = true;
+                } else {
+                    if (input.dataset.lockPrevReadonly !== undefined) {
+                        input.readOnly = input.dataset.lockPrevReadonly === 'true';
+                        delete input.dataset.lockPrevReadonly;
+                    }
+                }
+            } else {
+                if (locked) {
+                    input.dataset.lockPrevDisabled = input.disabled ? 'true' : 'false';
+                    input.disabled = true;
+                } else {
+                    if (input.dataset.lockPrevDisabled !== undefined) {
+                        input.disabled = input.dataset.lockPrevDisabled === 'true';
+                        delete input.dataset.lockPrevDisabled;
+                    }
+                }
+            }
+        });
+
+        const duplicateBtn = card.querySelector('[data-object-action="duplicate"]');
+        if (duplicateBtn) {
+            duplicateBtn.disabled = false;
+        }
+    }
+
+    applyCardCollapseState(card) {
+        if (!card) return;
+        const collapsed = card.dataset.collapsed === 'true';
+        const body = card.querySelector('.object-card__body');
+        if (body) {
+            body.style.display = collapsed ? 'none' : '';
+        }
+    }
+
+    updateCollapseButtonLabel(card, button) {
+        if (!button || !card) return;
+        const collapsed = card.dataset.collapsed === 'true';
+        button.textContent = collapsed ? 'Expand' : 'Collapse';
+    }
+
+    updateLockButtonLabel(card, button) {
+        if (!button || !card) return;
+        const locked = card.dataset.locked === 'true';
+        button.textContent = locked ? 'Unlock' : 'Lock';
+    }
+
+    generateObjectId() {
+        const prefix = (this.objectConfig && this.objectConfig.idPrefix) || 'obj';
+        this.objectIdCounter += 1;
+        return `${prefix}-${this.objectIdCounter}`;
+    }
+
+    registerExistingObjectId(objectId) {
+        if (typeof objectId !== 'string') return;
+        const prefix = (this.objectConfig && this.objectConfig.idPrefix) || 'obj';
+        const match = objectId.match(new RegExp(`^${prefix}-(\\d+)$`));
+        if (!match) return;
+        const numeric = Number(match[1]);
+        if (!Number.isNaN(numeric) && numeric > this.objectIdCounter) {
+            this.objectIdCounter = numeric;
+        }
+    }
+
+    transformObjectFormData(formData) {
+        if (!formData) return null;
+
+        const objectId = typeof formData.objectId === 'string' ? formData.objectId.trim() : '';
+        if (!objectId) {
+            return null;
+        }
+
+        const characteristics = this.parseDelimitedList(formData.characteristics);
+        const highlightTags = this.parseHighlightTagsInput(formData.highlightTags);
+        const interactions = this.parseDelimitedList(formData.interactions);
+        const description = typeof formData.description === 'string' ? formData.description.trim() : '';
+        const interactionNotes = typeof formData.interactionNotes === 'string' ? formData.interactionNotes.trim() : '';
+        const position = typeof formData.position === 'string' ? formData.position.trim() : '';
+        const material = typeof formData.material === 'string' ? formData.material.trim() : '';
+        const structure = typeof formData.structure === 'string' ? formData.structure.trim() : '';
+        const texture = typeof formData.texture === 'string' ? formData.texture.trim() : '';
+
+        const additional = {
+            weight: formData.weight || this.objectDefaults.weight,
+            priority: formData.priority || this.objectDefaults.priority,
+            scale: formData.scale || this.objectDefaults.scale,
+            position,
+            material,
+            structure,
+            texture,
+            importance: this.parseNumber(formData.importance, Number(this.objectDefaults.importance) || 50),
+            interaction_notes: interactionNotes
+        };
+
+        const result = {
+            id: objectId,
+            description,
+            characteristics,
+            highlight_tags: highlightTags,
+            additional_object_settings: additional,
+            states: {
+                locked: this.toBoolean(formData.locked),
+                collapsed: this.toBoolean(formData.collapsed)
+            }
+        };
+
+        if (interactions.length) {
+            result.relations = {
+                interacts_with: interactions
+            };
+        }
+
+        if (!this.hasObjectContent(result)) {
+            return null;
+        }
+
+        return this.cleanupObjectData(result);
+    }
+
+    hasObjectContent(data) {
+        if (!data) return false;
+
+        const descriptionFilled = Boolean(data.description);
+        const characteristicsFilled = Array.isArray(data.characteristics) && data.characteristics.length > 0;
+        const highlightFilled = Array.isArray(data.highlight_tags) && data.highlight_tags.length > 0;
+        const additional = data.additional_object_settings || {};
+        const additionalFilled = Boolean(
+            additional.position ||
+            additional.material ||
+            additional.structure ||
+            additional.texture ||
+            additional.interaction_notes
+        );
+
+        return descriptionFilled || characteristicsFilled || highlightFilled || additionalFilled;
+    }
+
+    cleanupObjectData(data) {
+        const cleaned = { ...data };
+
+        if (!cleaned.description) {
+            delete cleaned.description;
+        }
+
+        if (!Array.isArray(cleaned.characteristics) || cleaned.characteristics.length === 0) {
+            delete cleaned.characteristics;
+        }
+
+        if (!Array.isArray(cleaned.highlight_tags) || cleaned.highlight_tags.length === 0) {
+            delete cleaned.highlight_tags;
+        }
+
+        if (cleaned.relations && (!cleaned.relations.interacts_with || cleaned.relations.interacts_with.length === 0)) {
+            delete cleaned.relations;
+        }
+
+        if (cleaned.states && cleaned.states.locked === false && cleaned.states.collapsed === false) {
+            delete cleaned.states;
+        }
+
+        const additional = { ...(cleaned.additional_object_settings || {}) };
+        if (!additional.position) delete additional.position;
+        if (!additional.material) delete additional.material;
+        if (!additional.structure) delete additional.structure;
+        if (!additional.texture) delete additional.texture;
+        if (!additional.interaction_notes) delete additional.interaction_notes;
+        if (typeof additional.importance !== 'number' || Number.isNaN(additional.importance)) {
+            delete additional.importance;
+        }
+
+        cleaned.additional_object_settings = additional;
+        if (Object.keys(cleaned.additional_object_settings).length === 0) {
+            delete cleaned.additional_object_settings;
+        }
+
+        return cleaned;
+    }
+
+    formatAdditionalObjectPrompt(obj) {
+        if (!obj || typeof obj !== 'object') return '';
+
+        const segments = [];
+
+        if (obj.id) {
+            segments.push(`[${obj.id}]`);
+        }
+
+        if (obj.description) {
+            segments.push(obj.description);
+        }
+
+        if (Array.isArray(obj.characteristics) && obj.characteristics.length > 0) {
+            segments.push(`traits: ${obj.characteristics.join(', ')}`);
+        }
+
+        const additional = obj.additional_object_settings || {};
+        if (additional.priority) {
+            segments.push(`priority: ${additional.priority}`);
+        }
+        if (additional.weight) {
+            segments.push(`weight: ${additional.weight}`);
+        }
+        if (additional.scale) {
+            segments.push(`scale: ${additional.scale}`);
+        }
+        if (additional.position) {
+            segments.push(`position: ${additional.position}`);
+        }
+        if (additional.material) {
+            segments.push(`material: ${additional.material}`);
+        }
+        if (additional.structure) {
+            segments.push(`structure: ${additional.structure}`);
+        }
+        if (additional.texture) {
+            segments.push(`texture: ${additional.texture}`);
+        }
+        if (typeof additional.importance === 'number' && !Number.isNaN(additional.importance)) {
+            segments.push(`importance: ${additional.importance}`);
+        }
+        if (additional.interaction_notes) {
+            segments.push(`interaction notes: ${additional.interaction_notes}`);
+        }
+
+        if (Array.isArray(obj.highlight_tags) && obj.highlight_tags.length > 0) {
+            const tags = obj.highlight_tags.map(tag => {
+                if (!tag) return null;
+                if (typeof tag === 'string') return tag;
+                const label = tag.tag || tag.key || tag.label || tag.name;
+                if (!label) return null;
+                return tag.color ? `${label} (${tag.color})` : label;
+            }).filter(Boolean);
+            if (tags.length) {
+                segments.push(`highlight tags: ${tags.join(', ')}`);
+            }
+        }
+
+        if (obj.relations && Array.isArray(obj.relations.interacts_with) && obj.relations.interacts_with.length > 0) {
+            segments.push(`interacts with: ${obj.relations.interacts_with.join(', ')}`);
+        }
+
+        if (obj.states && (obj.states.locked || obj.states.collapsed)) {
+            const stateFlags = [];
+            if (obj.states.locked) stateFlags.push('locked');
+            if (obj.states.collapsed) stateFlags.push('collapsed');
+            if (stateFlags.length) {
+                segments.push(`state: ${stateFlags.join(', ')}`);
+            }
+        }
+
+        return segments.join('; ');
+    }
+
+    parseDelimitedList(value) {
+        if (!value || typeof value !== 'string') return [];
+        return value
+            .split(',')
+            .map(token => token.trim())
+            .filter(Boolean);
+    }
+
+    parseHighlightTagsInput(value) {
+        if (!value || typeof value !== 'string') return [];
+        return value
+            .split(',')
+            .map(token => token.trim())
+            .filter(Boolean)
+            .map(entry => {
+                const [tag, color] = entry.split(':').map(part => part.trim());
+                if (!tag) return null;
+                const paletteMatch = Array.isArray(this.objectConfig.highlightTagPalette)
+                    ? this.objectConfig.highlightTagPalette.find(item => item.key === tag || item.label === tag)
+                    : null;
+                const resolvedColor = color || (paletteMatch ? paletteMatch.color : undefined);
+                return {
+                    tag,
+                    color: resolvedColor || undefined
+                };
+            })
+            .filter(Boolean);
+    }
+
+    formatHighlightTagsForInput(tags) {
+        if (!Array.isArray(tags) || tags.length === 0) return '';
+        return tags
+            .map(entry => {
+                if (!entry) return null;
+                if (typeof entry === 'string') {
+                    return entry;
+                }
+                const tag = entry.tag || entry.key || entry.label || entry.name;
+                if (!tag) return null;
+                return entry.color ? `${tag}:${entry.color}` : tag;
+            })
+            .filter(Boolean)
+            .join(', ');
+    }
+
+    parseNumber(value, fallback) {
+        const numeric = typeof value === 'number' ? value : Number(value);
+        if (Number.isNaN(numeric)) {
+            return typeof fallback === 'number' && !Number.isNaN(fallback) ? fallback : 0;
+        }
+        return numeric;
+    }
+
+    toBoolean(value) {
+        if (typeof value === 'boolean') {
+            return value;
+        }
+        if (typeof value === 'string') {
+            const trimmed = value.trim().toLowerCase();
+            if (trimmed === 'true') return true;
+            if (trimmed === 'false') return false;
+        }
+        return Boolean(value);
+    }
+
+    hasFormObjectContent(formData) {
+        if (!formData) return false;
+
+        const descriptionFilled = typeof formData.description === 'string' && formData.description.trim().length > 0;
+        const characteristicsFilled = this.parseDelimitedList(formData.characteristics).length > 0;
+        const highlightFilled = this.parseDelimitedList(formData.highlightTags).length > 0;
+        const interactionsFilled = this.parseDelimitedList(formData.interactions).length > 0;
+
+        const positionFilled = typeof formData.position === 'string' && formData.position.trim().length > 0;
+        const materialFilled = typeof formData.material === 'string' && formData.material.trim().length > 0;
+        const structureFilled = typeof formData.structure === 'string' && formData.structure.trim().length > 0;
+        const textureFilled = typeof formData.texture === 'string' && formData.texture.trim().length > 0;
+        const notesFilled = typeof formData.interactionNotes === 'string' && formData.interactionNotes.trim().length > 0;
+
+        return (
+            descriptionFilled ||
+            characteristicsFilled ||
+            highlightFilled ||
+            interactionsFilled ||
+            positionFilled ||
+            materialFilled ||
+            structureFilled ||
+            textureFilled ||
+            notesFilled
+        );
     }
 
     collectObjects() {
@@ -910,56 +1540,7 @@ class NanoBanaConstructor {
 
         const cards = Array.from(this.objectsContainer.querySelectorAll('[data-object-card]'));
         return cards
-            .map(card => {
-                const descriptionField = card.querySelector('[data-object-field="description"]');
-                const characteristicsField = card.querySelector('[data-object-field="characteristics"]');
-                const positionField = card.querySelector('[data-object-field="position"]');
-                const scaleField = card.querySelector('[data-object-field="scale"]');
-                const styleTagsField = card.querySelector('[data-object-field="styleTags"]');
-
-                const description = descriptionField ? descriptionField.value.trim() : '';
-                const characteristicsRaw = characteristicsField ? characteristicsField.value.trim() : '';
-                const position = positionField ? positionField.value.trim() : '';
-                const scale = scaleField ? scaleField.value : '';
-                const styleTagsRaw = styleTagsField ? styleTagsField.value.trim() : '';
-
-                if (!description && !characteristicsRaw && !position && !scale && !styleTagsRaw) {
-                    return null;
-                }
-
-                const objectData = {};
-                if (description) {
-                    objectData.description = description;
-                }
-
-                if (characteristicsRaw) {
-                    const characteristics = characteristicsRaw
-                        .split(',')
-                        .map(char => char.trim())
-                        .filter(Boolean);
-
-                    objectData.characteristics = characteristics;
-                }
-
-                if (position) {
-                    objectData.position = position;
-                }
-
-                if (scale) {
-                    objectData.scale = scale;
-                }
-
-                if (styleTagsRaw) {
-                    const styleTags = styleTagsRaw
-                        .split(',')
-                        .map(tag => tag.trim())
-                        .filter(Boolean);
-
-                    objectData.style_tags = styleTags;
-                }
-
-                return objectData;
-            })
+            .map(card => this.transformObjectFormData(this.getObjectCardFormValues(card)))
             .filter(Boolean);
     }
 
@@ -1322,20 +1903,13 @@ class NanoBanaConstructor {
         }
 
         if (Array.isArray(data.additional_objects) && data.additional_objects.length > 0) {
-            const objectsDescriptions = data.additional_objects.map(obj => {
-                const segments = [];
-                if (obj.description) segments.push(obj.description);
-                if (obj.characteristics && obj.characteristics.length) {
-                    segments.push(`characteristics: ${obj.characteristics.join(', ')}`);
-                }
-                if (obj.position) segments.push(`position: ${obj.position}`);
-                if (obj.scale) segments.push(`scale: ${obj.scale}`);
-                if (obj.style_tags && obj.style_tags.length) {
-                    segments.push(`style tags: ${obj.style_tags.join(', ')}`);
-                }
-                return segments.join('; ');
-            });
-            promptParts.push(`Additional objects: ${objectsDescriptions.join(' | ')}.`);
+            const objectsDescriptions = data.additional_objects
+                .map(obj => this.formatAdditionalObjectPrompt(obj))
+                .filter(Boolean);
+
+            if (objectsDescriptions.length > 0) {
+                promptParts.push(`Additional objects: ${objectsDescriptions.join(' | ')}.`);
+            }
         }
 
         if (data.restrictions) {
@@ -1840,46 +2414,10 @@ class NanoBanaConstructor {
 
     normalizeImportedObject(obj) {
         if (!obj || typeof obj !== 'object') return null;
-        const normalized = {};
-
-        if (obj.description) {
-            normalized.description = obj.description;
-        }
-
-        if (Array.isArray(obj.characteristics)) {
-            normalized.characteristics = obj.characteristics.join(', ');
-        } else if (typeof obj.characteristics === 'string') {
-            normalized.characteristics = obj.characteristics;
-        }
-
-        if (obj.position) {
-            normalized.position = obj.position;
-        }
-
-        if (obj.scale) {
-            normalized.scale = obj.scale;
-        }
-
-        if (Array.isArray(obj.style_tags)) {
-            normalized.styleTags = obj.style_tags.join(', ');
-        } else if (Array.isArray(obj.styleTags)) {
-            normalized.styleTags = obj.styleTags.join(', ');
-        } else if (typeof obj.style_tags === 'string') {
-            normalized.styleTags = obj.style_tags;
-        } else if (typeof obj.styleTags === 'string') {
-            normalized.styleTags = obj.styleTags;
-        }
-
-        if (
-            !normalized.description &&
-            !normalized.characteristics &&
-            !normalized.position &&
-            !normalized.scale &&
-            !normalized.styleTags
-        ) {
+        const normalized = this.normalizePersistedObject(obj);
+        if (!this.hasFormObjectContent(normalized)) {
             return null;
         }
-
         return normalized;
     }
 
@@ -1940,6 +2478,8 @@ class NanoBanaConstructor {
         if (this.objectsContainer) {
             this.objectsContainer.innerHTML = '';
         }
+
+        this.objectIdCounter = 0;
 
         if (this.taskDescription) {
             this.taskDescription.value = '';

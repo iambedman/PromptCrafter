@@ -1,10 +1,85 @@
 const promptConfig = {
   version: '0.1.0',
   storage: {
-    key: 'nanobana:state:v1',
-    schemaVersion: 1,
+    key: 'nanobana:state:v2',
+    schemaVersion: 2,
     autosaveDebounceMs: 750,
     historyLimit: 5,
+    migrate: function migrateStoragePayload(payload = {}, targetVersion) {
+      if (!payload || typeof payload !== 'object') {
+        return null;
+      }
+
+      const migrateSnapshot = (snapshot) => {
+        if (!snapshot || typeof snapshot !== 'object') return snapshot;
+        if (!Array.isArray(snapshot.objects)) return snapshot;
+
+        const ensureArray = (value) => {
+          if (Array.isArray(value)) return value;
+          if (!value) return [];
+          if (typeof value === 'string') {
+            return value
+              .split(',')
+              .map((part) => part.trim())
+              .filter(Boolean);
+          }
+          return [];
+        };
+
+        const migratedObjects = snapshot.objects.map((obj, index) => {
+          if (!obj || typeof obj !== 'object') return obj;
+
+          // Already in the new format
+          if (
+            typeof obj.priority === 'string' ||
+            typeof obj.weight === 'string' ||
+            typeof obj.highlightTags === 'string'
+          ) {
+            return obj;
+          }
+
+          const characteristics = ensureArray(obj.characteristics).join(', ');
+          const highlightTags = ensureArray(obj.style_tags || obj.styleTags).join(', ');
+
+          return {
+            objectId: obj.objectId || obj.id || `legacy-${index + 1}`,
+            description: obj.description || '',
+            characteristics,
+            priority: 'primary',
+            weight: 'balanced',
+            scale: obj.scale || 'medium',
+            position: obj.position || '',
+            importance: '50',
+            material: obj.material || '',
+            structure: obj.structure || '',
+            texture: obj.texture || '',
+            highlightTags,
+            interactions: '',
+            interactionNotes: obj.interactionNotes || '',
+            locked: false,
+            collapsed: false,
+          };
+        });
+
+        return { ...snapshot, objects: migratedObjects };
+      };
+
+      const migratedPayload = { ...payload };
+      if (payload.data) {
+        migratedPayload.data = migrateSnapshot(payload.data);
+      }
+
+      if (Array.isArray(payload.history)) {
+        migratedPayload.history = payload.history.map((item) => {
+          if (!item || typeof item !== 'object') return item;
+          if (!item.data) return item;
+          return { ...item, data: migrateSnapshot(item.data) };
+        });
+      }
+
+      migratedPayload.schemaVersion = targetVersion || payload.schemaVersion;
+      return migratedPayload;
+    },
   },
   fieldOrder: [
     'task',
@@ -18,6 +93,110 @@ const promptConfig = {
     'restrictions',
     'output',
   ],
+  objects: {
+    idPrefix: 'obj',
+    states: {
+      lock: ['locked', 'unlocked'],
+      collapse: ['expanded', 'collapsed'],
+    },
+    defaults: {
+      weight: 'balanced',
+      priority: 'primary',
+      scale: 'medium',
+      position: '',
+      material: '',
+      structure: '',
+      texture: '',
+      interactions: [],
+      highlightTags: [],
+      interactionNotes: '',
+      importance: 50,
+    },
+    additionalObjectSettings: [
+      {
+        key: 'weight',
+        type: 'select',
+        label: 'Weight / Mass',
+        options: ['featherlight', 'light', 'balanced', 'heavy', 'massive'],
+        default: 'balanced',
+      },
+      {
+        key: 'priority',
+        type: 'select',
+        label: 'Scene Priority',
+        options: ['primary', 'secondary', 'supporting', 'background'],
+        default: 'primary',
+      },
+      {
+        key: 'scale',
+        type: 'select',
+        label: 'Scale',
+        options: ['micro', 'small', 'medium', 'large', 'colossal'],
+        default: 'medium',
+      },
+      {
+        key: 'position',
+        type: 'text',
+        label: 'Position in Frame',
+        placeholder: 'left foreground, upper third, etc.',
+      },
+      {
+        key: 'material',
+        type: 'text',
+        label: 'Material',
+        placeholder: 'wood, chrome, holographic...',
+      },
+      {
+        key: 'structure',
+        type: 'text',
+        label: 'Structure',
+        placeholder: 'layered, modular, crystalline...',
+      },
+      {
+        key: 'texture',
+        type: 'text',
+        label: 'Texture',
+        placeholder: 'matte, glossy, rough...',
+      },
+      {
+        key: 'interactionNotes',
+        type: 'textarea',
+        label: 'Interaction Notes',
+        placeholder: 'How this object interacts with others or environment',
+      },
+      {
+        key: 'importance',
+        type: 'range',
+        min: 0,
+        max: 100,
+        step: 10,
+        default: 50,
+        label: 'Importance Weight',
+      },
+      {
+        key: 'highlightTags',
+        type: 'tags',
+        label: 'Highlight Tags',
+        description: 'Comma separated tag:color pairs (e.g. focus:#ffd400)',
+      },
+      {
+        key: 'interactions',
+        type: 'tags',
+        label: 'Related Objects',
+        description: 'Comma separated object IDs to describe relations',
+      },
+    ],
+    dependencies: {
+      material: ['texture', 'structure'],
+      scale: ['position'],
+    },
+    highlightTagPalette: [
+      { key: 'focus', label: 'Фокус', color: '#FFCF33' },
+      { key: 'danger', label: 'Опасность', color: '#FF5F56' },
+      { key: 'support', label: 'Поддержка', color: '#4CAF50' },
+      { key: 'accent', label: 'Акцент', color: '#8E44AD' },
+    ],
+  },
   styles: {
     professional_photo: {
       key: 'professional_photo',

@@ -392,35 +392,96 @@
 
                 <!-- Template for a single object -->
                 <template id="objectTemplate">
-                    <div class="object-card" data-object-card>
-                        <div class="form-group">
-                            <label class="form-label">Object Description</label>
-                            <textarea class="form-control object-description" data-object-field="description" placeholder="e.g., a red ball"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Characteristics</label>
-                            <input type="text" class="form-control object-characteristics" data-object-field="characteristics" placeholder="e.g., shiny, small">
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Position</label>
-                                <input type="text" class="form-control" data-object-field="position" placeholder="e.g., left foreground">
+                    <div class="object-card" data-object-card data-locked="false" data-collapsed="false">
+                        <div class="object-card__header">
+                            <div class="object-card__meta">
+                                <label class="form-label">Object ID</label>
+                                <input type="text" class="form-control" data-object-field="objectId" placeholder="obj-1">
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">Scale</label>
-                                <select class="form-control" data-object-field="scale">
-                                    <option value="">Default</option>
-                                    <option value="small">Small</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="large">Large</option>
-                                </select>
+                            <div class="object-card__actions">
+                                <button type="button" class="btn btn--outline btn--sm" data-object-action="duplicate">Duplicate</button>
+                                <button type="button" class="btn btn--outline btn--sm" data-object-action="collapse">Collapse</button>
+                                <button type="button" class="btn btn--outline btn--sm" data-object-action="lock">Lock</button>
+                                <button type="button" class="btn btn--outline btn--sm remove-object-btn" data-remove-object>Remove</button>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Style Tags</label>
-                            <input type="text" class="form-control" data-object-field="styleTags" placeholder="Comma separated tags">
+                        <div class="object-card__body">
+                            <div class="form-group">
+                                <label class="form-label">Object Description</label>
+                                <textarea class="form-control object-description" data-object-field="description" placeholder="e.g., focal object, pose, mood"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Characteristics</label>
+                                <input type="text" class="form-control object-characteristics" data-object-field="characteristics" placeholder="Comma separated traits">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Priority</label>
+                                    <select class="form-control" data-object-field="priority">
+                                        <option value="primary">Primary</option>
+                                        <option value="secondary">Secondary</option>
+                                        <option value="supporting">Supporting</option>
+                                        <option value="background">Background</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Weight</label>
+                                    <select class="form-control" data-object-field="weight">
+                                        <option value="featherlight">Featherlight</option>
+                                        <option value="light">Light</option>
+                                        <option value="balanced" selected>Balanced</option>
+                                        <option value="heavy">Heavy</option>
+                                        <option value="massive">Massive</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Scale</label>
+                                    <select class="form-control" data-object-field="scale">
+                                        <option value="micro">Micro</option>
+                                        <option value="small">Small</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="large">Large</option>
+                                        <option value="colossal">Colossal</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Position</label>
+                                    <input type="text" class="form-control" data-object-field="position" placeholder="left foreground, upper third, etc.">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Importance</label>
+                                    <input type="number" class="form-control" data-object-field="importance" min="0" max="100" step="10" value="50">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Material</label>
+                                    <input type="text" class="form-control" data-object-field="material" placeholder="wood, chrome, plasma">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Structure</label>
+                                    <input type="text" class="form-control" data-object-field="structure" placeholder="layered, crystalline">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Texture</label>
+                                    <input type="text" class="form-control" data-object-field="texture" placeholder="matte, glossy">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Highlight Tags (tag:color)</label>
+                                <input type="text" class="form-control" data-object-field="highlightTags" placeholder="focus:#ffd400, danger:#ff5f56">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Related Objects (IDs)</label>
+                                <input type="text" class="form-control" data-object-field="interactions" placeholder="obj-1, obj-2">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Interaction Notes</label>
+                                <textarea class="form-control" data-object-field="interactionNotes" placeholder="Describe how this object interacts with others"></textarea>
+                            </div>
                         </div>
-                        <button type="button" class="btn btn--outline btn--sm remove-object-btn" data-remove-object>Remove</button>
                     </div>
                 </template>
             </div>

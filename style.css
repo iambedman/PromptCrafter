@@ -935,6 +935,56 @@ select.form-control {
     background: rgba(var(--color-brown-600-rgb), 0.06);
 }
 
+.object-card__header {
+    display: flex;
+    gap: var(--space-12);
+    justify-content: space-between;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.object-card__meta {
+    display: grid;
+    gap: var(--space-4);
+    min-width: 200px;
+    flex: 1;
+}
+
+.object-card__actions {
+    display: flex;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.object-card__body {
+    display: grid;
+    gap: var(--space-12);
+}
+
+.object-card[data-collapsed="true"] .object-card__body {
+    display: none;
+}
+
+.object-card[data-locked="true"] {
+    border-style: solid;
+    border-color: var(--color-border);
+    background: rgba(var(--color-brown-600-rgb), 0.02);
+}
+
+.object-card[data-locked="true"] .object-card__actions button[data-object-action="lock"]::after {
+    content: ' (Locked)';
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.object-card[data-locked="true"] .object-card__body .form-control,
+.object-card[data-locked="true"] .object-card__body textarea,
+.object-card[data-locked="true"] .object-card__body select {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
 .object-card .remove-object-btn {
     justify-self: start;
 }
