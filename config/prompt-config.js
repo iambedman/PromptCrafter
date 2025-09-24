@@ -119,6 +119,8 @@ const promptConfig = {
         label: 'Weight / Mass',
         options: ['featherlight', 'light', 'balanced', 'heavy', 'massive'],
         default: 'balanced',
+        description:
+          'Sets the perceived heaviness of the object so the model understands if it should feel light, grounded or massive.',
       },
       {
         key: 'priority',
@@ -126,6 +128,8 @@ const promptConfig = {
         label: 'Scene Priority',
         options: ['primary', 'secondary', 'supporting', 'background'],
         default: 'primary',
+        description:
+          'Controls how important this object is for the composition and telling the story of the scene.',
       },
       {
         key: 'scale',
@@ -133,36 +137,48 @@ const promptConfig = {
         label: 'Scale',
         options: ['micro', 'small', 'medium', 'large', 'colossal'],
         default: 'medium',
+        description:
+          'Defines relative size so you can call out miniature props or towering structures.',
       },
       {
         key: 'position',
         type: 'text',
         label: 'Position in Frame',
         placeholder: 'left foreground, upper third, etc.',
+        description:
+          'Name the placement inside the frame (rule-of-thirds, foreground/background, camera distance).',
       },
       {
         key: 'material',
         type: 'text',
         label: 'Material',
         placeholder: 'wood, chrome, holographic...',
+        description:
+          'List physical materials to drive reflections and shading (metal, glass, velvet, etc.).',
       },
       {
         key: 'structure',
         type: 'text',
         label: 'Structure',
         placeholder: 'layered, modular, crystalline...',
+        description:
+          'Describe construction style or geometry so the model understands how the object is built.',
       },
       {
         key: 'texture',
         type: 'text',
         label: 'Texture',
         placeholder: 'matte, glossy, rough...',
+        description:
+          'Set the surface feel (smooth, grainy, glossy) to control micro detail and specularity.',
       },
       {
         key: 'interactionNotes',
         type: 'textarea',
         label: 'Interaction Notes',
         placeholder: 'How this object interacts with others or environment',
+        description:
+          'Explain motion, collisions, or relationships with characters and environment cues.',
       },
       {
         key: 'importance',
@@ -172,6 +188,8 @@ const promptConfig = {
         step: 10,
         default: 50,
         label: 'Importance Weight',
+        description:
+          "Fine-tunes the object's weight in prompt ranking so higher values keep it present in the final output.",
       },
       {
         key: 'highlightTags',
